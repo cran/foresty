@@ -1,0 +1,226 @@
+---
+title: "Forest plots with foresty"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Forest plots with foresty}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 3,
+  dpi = 120,
+  out.width = "100%"
+)
+```
+
+```{r}
+#| label: library
+library(foresty)
+```
+
+## What is foresty?
+
+An interaction p-value indicates whether the effect of an exposure differs
+across subgroups. It does not show the size or direction of the effect in each
+subgroup. `foresty` presents those subgroup-specific estimates alongside the
+interaction test in a publication-ready forest plot. You can use it directly
+from R or through a local Shiny app, which generates the code for each figure.
+
+## Before you start
+
+Fit the model in an R script before opening the app. The app works with an
+existing fitted model; it does not select a model or alter the data. Start
+without the exposure-by-modifier interaction term. `foresty` adds the two-way
+term when performing a subgroup analysis.
+
+Categorical effect modifiers should be factors, with levels ordered as you
+want them to appear. A numeric modifier with three or more values must be
+categorized, and the model must then be refitted before it can be used.
+
+```{r}
+#| eval: false
+cohort <- transform(
+  foresty_cohort,
+  sex = factor(sex, levels = c("Female", "Male")),
+  maternal_smoking = factor(maternal_smoking)
+)
+```
+
+The package includes a simulated birth cohort for examples.
+
+```{r}
+str(foresty_cohort, max.level = 1)
+```
+
+## Fit a model
+
+For example, we can estimate the association between infant NO2 exposure and
+asthma, adjusting for sex, maternal smoking, and maternal age:
+
+```{r}
+#| eval: false
+fit <- glm(
+  asthma ~ no2 + sex + maternal_smoking + maternal_age,
+  family = binomial,
+  data = cohort
+)
+```
+
+For logistic models, `foresty` reports odds ratios by default. It also supports
+common linear, survival, mixed-effects, and marginal models, provided they
+include coefficients, a covariance matrix, and a model frame.
+
+## Launch the app
+
+```{r}
+#| eval: false
+foresty_app(fit)
+```
+
+The app runs locally and uses the fitted model in your current R session.
+Choose one or more exposures and effect modifiers from the model variables. If
+you select several exposures and modifiers, the app creates a figure for each
+exposure-modifier pair. You can also include the overall exposure effect from
+the original model.
+
+## Choose the comparison
+
+For a continuous exposure, choose the comparison represented by each estimate:
+
+* **One unit**
+* **An interquartile range**
+* **An increment you specify**, such as 10 units
+* **Two values to compare**, including selected quantiles
+
+The figure states the selected comparison. For example, `contrast = 10`
+reports the effect for a 10-unit increase, whereas `at = c(10, 20)` compares
+an exposure value of 20 with one of 10. The latter is particularly useful for
+nonlinear or spline-transformed exposures.
+
+## Create an interaction figure in R
+
+You can run the same analysis directly in a script. The following call adds
+the NO2-by-sex interaction, if it is not already in the fitted model, and then
+estimates the NO2 effect separately for each sex.
+
+```{r}
+#| eval: false
+by_sex <- foresty_interaction(
+  fit,
+  exposure = "no2",
+  interaction = "sex",
+  contrast = 10
+)
+
+by_sex
+```
+
+`foresty_interaction()` reports a joint interaction test and confidence
+intervals for the subgroup estimates. All subgroup estimates come from one
+interaction model, rather than separate models fitted within each subgroup.
+
+## Combine and style figures
+
+Use `foresty_main()` for an overall effect and `foresty_combine()` to place it
+beside one or more subgroup analyses.
+
+```{r}
+#| eval: false
+overall <- foresty_main(list(fit), exposure = "no2", contrast = 10)
+figure <- foresty_combine(Overall = overall, Sex = by_sex, layout = "jama")
+
+figure
+```
+
+Available layouts include `"classic"`, `"jama"`, `"nejm"`, `"lancet"`,
+`"bmj"`, and `"revman"`. You can further customize a figure with standard
+`ggplot2` layers.
+
+## Outcomes with more than two levels
+
+An ordinal outcome fitted by `MASS::polr()` is read as one proportional-odds
+model, so the exposure has a single effect and the figure has a single row,
+as it would for a binary outcome.
+
+```{r}
+#| eval: false
+fit_severity <- MASS::polr(asthma_severity ~ no2 + sex + maternal_smoking,
+                           data = foresty_cohort, Hess = TRUE)
+
+foresty_main(list(fit_severity), exposure = "no2", contrast = 10)
+```
+
+A nominal outcome fitted by `nnet::multinom()` is K - 1 logistic regressions
+sharing one likelihood, one per non-reference level of the outcome. The
+exposure therefore has one effect per level, and the figure carries one row
+per level rather than one row in total.
+
+```{r}
+#| eval: false
+fit_phenotype <- nnet::multinom(
+  wheeze_phenotype ~ no2 + sex + maternal_smoking,
+  data = foresty_cohort, trace = FALSE
+)
+
+foresty_main(list(fit_phenotype), exposure = "no2", contrast = 10,
+             outcome_reference_row = TRUE)
+```
+
+`outcome_reference` says which level the other rows are read against, and
+`outcome_reference_row` draws that level as a row of its own so that the
+figure states the reference rather than leaving it to the row labels.
+
+In the table beside such a figure, each row compares two levels of the
+outcome, so **N** holds how many observations were at each of them --
+`637 vs 1,050` -- and there is no **Events** column, which would repeat the
+first of the two. The estimate did not come out of those two groups alone:
+all the equations are fitted over the whole outcome at once, so the
+observations at the levels a row is not about bear on it too.
+`foresty_layout(counts = "row")` holds the row's own group alone instead,
+which is the number of observations the model was fitted on. What the counts
+hold for every kind of figure is in *What the counts beside the rows count*
+in `?foresty_main`.
+
+An interaction is tested jointly across the equations, so its p-value spends
+one degree of freedom for each coefficient the interaction added:
+
+```{r}
+#| eval: false
+foresty_interaction(fit_phenotype, exposure = "no2", interaction = "sex",
+                    contrast = 10)
+```
+
+## Reproduce and export results
+
+The app's **R code** tab shows the code used to create the current figure,
+which you can copy into an analysis script. You can download PNG and SVG
+figures, HTML reports, and the resulting R objects. When downloading multiple
+figures, the app bundles them in a zip file.
+
+You can also create an HTML report from a result in R:
+
+```{r}
+#| eval: false
+foresty_report(by_sex, file = "no2_by_sex.html")
+```
+
+The report records the subgroup estimates, interaction test, and model
+coefficients used for the figure.
+
+## Where to read next
+
+* `?foresty_app` — explore interactions interactively.
+* `?foresty_interaction` — visualize two-way interactions.
+* `?foresty_main` — visualize overall effects.
+* `?foresty_combine` — combine multiple analyses.
+* `?foresty_layout` — customize forest plots.
+* `?foresty_report` — create HTML reports.

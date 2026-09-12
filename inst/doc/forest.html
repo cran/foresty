@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Forest plots with foresty</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Forest plots with foresty</h1>
+
+
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(foresty)</span></code></pre></div>
+<div id="what-is-foresty" class="section level2">
+<h2>What is foresty?</h2>
+<p>An interaction p-value indicates whether the effect of an exposure
+differs across subgroups. It does not show the size or direction of the
+effect in each subgroup. <code>foresty</code> presents those
+subgroup-specific estimates alongside the interaction test in a
+publication-ready forest plot. You can use it directly from R or through
+a local Shiny app, which generates the code for each figure.</p>
+</div>
+<div id="before-you-start" class="section level2">
+<h2>Before you start</h2>
+<p>Fit the model in an R script before opening the app. The app works
+with an existing fitted model; it does not select a model or alter the
+data. Start without the exposure-by-modifier interaction term.
+<code>foresty</code> adds the two-way term when performing a subgroup
+analysis.</p>
+<p>Categorical effect modifiers should be factors, with levels ordered
+as you want them to appear. A numeric modifier with three or more values
+must be categorized, and the model must then be refitted before it can
+be used.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>cohort <span class="ot">&lt;-</span> <span class="fu">transform</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  foresty_cohort,</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">sex =</span> <span class="fu">factor</span>(sex, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;Female&quot;</span>, <span class="st">&quot;Male&quot;</span>)),</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">maternal_smoking =</span> <span class="fu">factor</span>(maternal_smoking)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>)</span></code></pre></div>
+<p>The package includes a simulated birth cohort for examples.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">str</span>(foresty_cohort, <span class="at">max.level =</span> <span class="dv">1</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="co">#&gt; &#39;data.frame&#39;:    4000 obs. of  13 variables:</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="co">#&gt;  $ asthma          : int  0 0 0 1 0 1 0 0 0 0 ...</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#&gt;  $ asthma_severity : Ord.factor w/ 4 levels &quot;None&quot;&lt;&quot;Mild&quot;&lt;..: 2 2 1 4 1 3 4 1 1 1 ...</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt;  $ wheeze          : int  0 0 0 0 1 0 0 1 0 1 ...</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt;  $ wheeze_phenotype: Factor w/ 3 levels &quot;None&quot;,&quot;Transient&quot;,..: 1 1 1 3 1 3 3 2 1 1 ...</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt;  $ followup_years  : num  4.368 5.494 2.964 2.055 0.285 ...</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt;  $ no2             : num  27.54 11.61 22.81 11.76 8.07 ...</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt;  $ black_carbon    : num  0.644 0.393 0.69 0.322 0.253 ...</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt;  $ sex             : Factor w/ 2 levels &quot;Female&quot;,&quot;Male&quot;: 1 2 2 2 2 2 2 1 1 1 ...</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt;  $ maternal_smoking: Factor w/ 2 levels &quot;No&quot;,&quot;Yes&quot;: 1 1 1 1 1 1 1 1 1 1 ...</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt;  $ maternal_asthma : Factor w/ 2 levels &quot;No&quot;,&quot;Yes&quot;: 1 1 1 2 1 2 2 1 1 1 ...</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt;  $ maternal_age    : num  29 30 38 23 32 22 29 27 24 30 ...</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt;  $ birth_year      : Factor w/ 10 levels &quot;2005&quot;,&quot;2006&quot;,..: 8 5 8 5 7 6 5 9 10 2 ...</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt;  $ urbanicity      : Factor w/ 3 levels &quot;Rural&quot;,&quot;Suburban&quot;,..: 3 1 3 3 2 3 1 2 3 2 ...</span></span></code></pre></div>
+</div>
+<div id="fit-a-model" class="section level2">
+<h2>Fit a model</h2>
+<p>For example, we can estimate the association between infant NO2
+exposure and asthma, adjusting for sex, maternal smoking, and maternal
+age:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">glm</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  asthma <span class="sc">~</span> no2 <span class="sc">+</span> sex <span class="sc">+</span> maternal_smoking <span class="sc">+</span> maternal_age,</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">family =</span> binomial,</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">data =</span> cohort</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>)</span></code></pre></div>
+<p>For logistic models, <code>foresty</code> reports odds ratios by
+default. It also supports common linear, survival, mixed-effects, and
+marginal models, provided they include coefficients, a covariance
+matrix, and a model frame.</p>
+</div>
+<div id="launch-the-app" class="section level2">
+<h2>Launch the app</h2>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">foresty_app</span>(fit)</span></code></pre></div>
+<p>The app runs locally and uses the fitted model in your current R
+session. Choose one or more exposures and effect modifiers from the
+model variables. If you select several exposures and modifiers, the app
+creates a figure for each exposure-modifier pair. You can also include
+the overall exposure effect from the original model.</p>
+</div>
+<div id="choose-the-comparison" class="section level2">
+<h2>Choose the comparison</h2>
+<p>For a continuous exposure, choose the comparison represented by each
+estimate:</p>
+<ul>
+<li><strong>One unit</strong></li>
+<li><strong>An interquartile range</strong></li>
+<li><strong>An increment you specify</strong>, such as 10 units</li>
+<li><strong>Two values to compare</strong>, including selected
+quantiles</li>
+</ul>
+<p>The figure states the selected comparison. For example,
+<code>contrast = 10</code> reports the effect for a 10-unit increase,
+whereas <code>at = c(10, 20)</code> compares an exposure value of 20
+with one of 10. The latter is particularly useful for nonlinear or
+spline-transformed exposures.</p>
+</div>
+<div id="create-an-interaction-figure-in-r" class="section level2">
+<h2>Create an interaction figure in R</h2>
+<p>You can run the same analysis directly in a script. The following
+call adds the NO2-by-sex interaction, if it is not already in the fitted
+model, and then estimates the NO2 effect separately for each sex.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>by_sex <span class="ot">&lt;-</span> <span class="fu">foresty_interaction</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  fit,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">interaction =</span> <span class="st">&quot;sex&quot;</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">contrast =</span> <span class="dv">10</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>)</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>by_sex</span></code></pre></div>
+<p><code>foresty_interaction()</code> reports a joint interaction test
+and confidence intervals for the subgroup estimates. All subgroup
+estimates come from one interaction model, rather than separate models
+fitted within each subgroup.</p>
+</div>
+<div id="combine-and-style-figures" class="section level2">
+<h2>Combine and style figures</h2>
+<p>Use <code>foresty_main()</code> for an overall effect and
+<code>foresty_combine()</code> to place it beside one or more subgroup
+analyses.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>overall <span class="ot">&lt;-</span> <span class="fu">foresty_main</span>(<span class="fu">list</span>(fit), <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">contrast =</span> <span class="dv">10</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>figure <span class="ot">&lt;-</span> <span class="fu">foresty_combine</span>(<span class="at">Overall =</span> overall, <span class="at">Sex =</span> by_sex, <span class="at">layout =</span> <span class="st">&quot;jama&quot;</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>figure</span></code></pre></div>
+<p>Available layouts include <code>&quot;classic&quot;</code>,
+<code>&quot;jama&quot;</code>, <code>&quot;nejm&quot;</code>, <code>&quot;lancet&quot;</code>,
+<code>&quot;bmj&quot;</code>, and <code>&quot;revman&quot;</code>. You can further customize
+a figure with standard <code>ggplot2</code> layers.</p>
+</div>
+<div id="outcomes-with-more-than-two-levels" class="section level2">
+<h2>Outcomes with more than two levels</h2>
+<p>An ordinal outcome fitted by <code>MASS::polr()</code> is read as one
+proportional-odds model, so the exposure has a single effect and the
+figure has a single row, as it would for a binary outcome.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>fit_severity <span class="ot">&lt;-</span> MASS<span class="sc">::</span><span class="fu">polr</span>(asthma_severity <span class="sc">~</span> no2 <span class="sc">+</span> sex <span class="sc">+</span> maternal_smoking,</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>                           <span class="at">data =</span> foresty_cohort, <span class="at">Hess =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="fu">foresty_main</span>(<span class="fu">list</span>(fit_severity), <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">contrast =</span> <span class="dv">10</span>)</span></code></pre></div>
+<p>A nominal outcome fitted by <code>nnet::multinom()</code> is K - 1
+logistic regressions sharing one likelihood, one per non-reference level
+of the outcome. The exposure therefore has one effect per level, and the
+figure carries one row per level rather than one row in total.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>fit_phenotype <span class="ot">&lt;-</span> nnet<span class="sc">::</span><span class="fu">multinom</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  wheeze_phenotype <span class="sc">~</span> no2 <span class="sc">+</span> sex <span class="sc">+</span> maternal_smoking,</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="at">data =</span> foresty_cohort, <span class="at">trace =</span> <span class="cn">FALSE</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="fu">foresty_main</span>(<span class="fu">list</span>(fit_phenotype), <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">contrast =</span> <span class="dv">10</span>,</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>             <span class="at">outcome_reference_row =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<p><code>outcome_reference</code> says which level the other rows are
+read against, and <code>outcome_reference_row</code> draws that level as
+a row of its own so that the figure states the reference rather than
+leaving it to the row labels.</p>
+<p>In the table beside such a figure, each row compares two levels of
+the outcome, so <strong>N</strong> holds how many observations were at
+each of them – <code>637 vs 1,050</code> – and there is no
+<strong>Events</strong> column, which would repeat the first of the two.
+The estimate did not come out of those two groups alone: all the
+equations are fitted over the whole outcome at once, so the observations
+at the levels a row is not about bear on it too.
+<code>foresty_layout(counts = &quot;row&quot;)</code> holds the row’s own group
+alone instead, which is the number of observations the model was fitted
+on. What the counts hold for every kind of figure is in <em>What the
+counts beside the rows count</em> in <code>?foresty_main</code>.</p>
+<p>An interaction is tested jointly across the equations, so its p-value
+spends one degree of freedom for each coefficient the interaction
+added:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">foresty_interaction</span>(fit_phenotype, <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">interaction =</span> <span class="st">&quot;sex&quot;</span>,</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>                    <span class="at">contrast =</span> <span class="dv">10</span>)</span></code></pre></div>
+</div>
+<div id="reproduce-and-export-results" class="section level2">
+<h2>Reproduce and export results</h2>
+<p>The app’s <strong>R code</strong> tab shows the code used to create
+the current figure, which you can copy into an analysis script. You can
+download PNG and SVG figures, HTML reports, and the resulting R objects.
+When downloading multiple figures, the app bundles them in a zip
+file.</p>
+<p>You can also create an HTML report from a result in R:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">foresty_report</span>(by_sex, <span class="at">file =</span> <span class="st">&quot;no2_by_sex.html&quot;</span>)</span></code></pre></div>
+<p>The report records the subgroup estimates, interaction test, and
+model coefficients used for the figure.</p>
+</div>
+<div id="where-to-read-next" class="section level2">
+<h2>Where to read next</h2>
+<ul>
+<li><code>?foresty_app</code> — explore interactions interactively.</li>
+<li><code>?foresty_interaction</code> — visualize two-way
+interactions.</li>
+<li><code>?foresty_main</code> — visualize overall effects.</li>
+<li><code>?foresty_combine</code> — combine multiple analyses.</li>
+<li><code>?foresty_layout</code> — customize forest plots.</li>
+<li><code>?foresty_report</code> — create HTML reports.</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

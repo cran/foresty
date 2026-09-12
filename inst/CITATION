@@ -1,0 +1,23 @@
+# Read by citation("foresty"). `meta` is the package's DESCRIPTION, supplied by
+# R when this file is read, so the version quoted here follows the installed
+# package rather than being kept up to date by hand. CRAN writes
+# `Date/Publication` into the DESCRIPTION it installs; before that -- an
+# install straight from the sources -- there is none, and the year of the
+# first release stands in.
+
+year <- sub("-.*", "", meta[["Date/Publication"]])
+if (!length(year) || is.na(year) || !nzchar(year)) {
+  year <- "2026"
+}
+
+bibentry(
+  bibtype  = "Manual",
+  title    = "{foresty}: Forest Plots and Subgroup Effects from Fitted Regression Models",
+  author   = c(
+    person("Akihiro", "Shiroshita"),
+    person("Yuki", "Kataoka")
+  ),
+  year     = year,
+  note     = sprintf("R package version %s", meta$Version),
+  url      = "https://github.com/AkiShiroshita/foresty"
+)
