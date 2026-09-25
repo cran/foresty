@@ -106,8 +106,62 @@ fy_joint_test <- function(info, columns) {
   list(
     statistic = fy_lh_statistic(lh),
     df = as.numeric(lh[["Df"]][2L]),
+    # An F is referred to two degrees of freedom, and the second is the one a
+    # reader checking the test against a model summary needs.
+    ddf = if (test == "F") info$error_df else NULL,
     p.value = fy_lh_p(lh),
     test = if (test == "F") "F" else "Wald chi-square",
+    terms = columns
+  )
+}
+
+# The degrees of freedom a test is written with: "1", or "1 and 113" where the
+# test is referred to a denominator as well.
+fy_df_phrase <- function(test) {
+  df <- fy_trim_number(test$df)
+  ddf <- test$ddf
+  if (is.null(ddf) || is.na(ddf) || !is.finite(ddf)) {
+    return(df)
+  }
+  paste0(df, " and ", fy_trim_number(round(ddf, 2)))
+}
+
+# Whether a test's degrees of freedom are one, in the sense that decides
+# between "degree" and "degrees": an F on 1 and 113 is on two numbers.
+fy_df_is_one <- function(test) {
+  isTRUE(test$df == 1) && is.null(test$ddf)
+}
+
+# The interaction tested against the design rather than against the Wald
+# approximation, for a survey-weighted fit. The ordinary likelihood ratio test
+# has no meaning there: the fit maximizes a pseudo-likelihood weighted by the
+# design, so twice the difference in it is not chi-square on anything. The
+# survey package's working likelihood ratio test (Rao and Scott) takes that
+# difference and refers it to the design, which is the test the survey
+# literature reports where an ordinary analysis would report the likelihood
+# ratio test. It is what anova() gives for two nested svyglm() fits, and what
+# survey::regTermTest() gives for the terms that differ between them, which is
+# the form taken here: survey refits the model without those terms itself, on
+# the design the fit carries, so the two are fitted to the same rows.
+#
+# `terms` are the labels of the interaction terms as the fit's own terms object
+# writes them, and `columns` the coefficients they produced.
+fy_svy_lrt_test <- function(info, terms, columns) {
+  fy_require("survey", "test the interaction of a survey-weighted fit")
+  fit <- info$fit
+  # svyglm() records its call under the bare name of the generic however it
+  # was called, and survey refits from that call. Naming the namespace lets it
+  # be found in a session that never attached survey.
+  if (identical(fit$call[[1L]], as.name("svyglm"))) {
+    fit$call[[1L]] <- quote(survey::svyglm)
+  }
+  a <- survey::regTermTest(fit, stats::reformulate(terms), method = "LRT")
+  list(
+    statistic = as.numeric(a$chisq),
+    df = as.numeric(a$df),
+    ddf = if (is.null(a$ddf)) NULL else as.numeric(a$ddf),
+    p.value = as.numeric(a$p),
+    test = "Rao-Scott working likelihood ratio",
     terms = columns
   )
 }

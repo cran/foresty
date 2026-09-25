@@ -101,6 +101,20 @@ fy_robust_vcov <- function(fit, vcov = NULL, cluster = NULL, data = NULL) {
   if (is.null(vcov) && is.null(cluster)) {
     return(NULL)
   }
+  # The variance of a survey-weighted fit is the design-based one already, and
+  # the clustering is part of the design it was fitted to. A sandwich taken
+  # over the fit as though it were an ordinary glm would ignore the strata and
+  # the sampling units, and a matrix passed in would replace the one the design
+  # gives; neither is what a survey analysis reports.
+  if (inherits(fit, "svyglm")) {
+    stop(
+      "the variance of a survey::svyglm() fit is already the design-based ",
+      "one, and the clustering is part of the design it was fitted to, so ",
+      "`vcov` and `cluster` do not apply to it. Drop them; to change the ",
+      "variance, change the design and refit.",
+      call. = FALSE
+    )
+  }
   if (is.matrix(vcov)) {
     return(vcov)
   }
@@ -441,7 +455,10 @@ fy_measure <- function(fit, outcome = fy_outcome_label(fit)) {
     return(fy_measure_spec("OR", outcome))
   }
   if (!is.na(fam_name)) {
-    if (fam_name == "binomial" && identical(link, "logit")) {
+    # A quasi-binomial logit is still a log odds; only its dispersion differs,
+    # and it is the family survey::svyglm() fits a logistic regression with.
+    if (fam_name %in% c("binomial", "quasibinomial") &&
+        identical(link, "logit")) {
       return(fy_measure_spec("OR", outcome))
     }
     if (fam_name %in% c("poisson", "quasipoisson") && identical(link, "log")) {
@@ -581,6 +598,11 @@ fy_model_name <- function(fit) {
   if (inherits(fit, c("geeglm", "gee"))) {
     return(paste0(sub(" model$", "", base),
                   " fitted by generalized estimating equations"))
+  }
+  # A fit to a survey design is weighted by the design and its variance comes
+  # from the design, which is what a methods section says about it.
+  if (inherits(fit, "svyglm")) {
+    return(paste0("Survey-weighted ", fy_lower_first(base)))
   }
   base
 }
@@ -722,6 +744,17 @@ fy_model_frame <- function(fit) {
       call. = FALSE
     )
   }
+  # A survey design that was subset() keeps the rows outside the subset, at a
+  # weight of zero, so that the variance still knows the sampling units they
+  # belong to; a calibrated design keeps them in its model frame too. Those
+  # rows contributed nothing to the estimates, and the people counted beside
+  # the estimates are the ones who did.
+  if (inherits(fit, "svyglm")) {
+    w <- fit[["prior.weights"]]
+    if (!is.null(w) && length(w) == nrow(mf)) {
+      mf <- mf[!is.na(w) & w > 0, , drop = FALSE]
+    }
+  }
   mf
 }
 
@@ -737,6 +770,11 @@ fy_model_frame <- function(fit) {
 fy_source_data <- function(fit) {
   call <- stats::getCall(fit)
   if (is.null(call) || is.null(call$data)) {
+    # A survey-weighted fit names a design rather than a data frame, and keeps
+    # the variables of that design as they were when it was fitted.
+    if (inherits(fit, "svyglm") && is.data.frame(fit[["data"]])) {
+      return(fit[["data"]])
+    }
     return(NULL)
   }
   env <- environment(stats::formula(fit))
@@ -834,12 +872,38 @@ fy_has_offset <- function(fit) {
 # approximation and a Wald chi-square, so the two need different error degrees
 # of freedom when the linear combination is tested.
 fy_error_df <- function(fit, ratio) {
+  # A survey-weighted fit is referred to a t and an F on the degrees of
+  # freedom of its design -- the primary sampling units less the strata --
+  # whatever its family, which is what survey's own summary() and confint()
+  # do. svyglm() stores that number as the fit's residual degrees of freedom.
+  if (inherits(fit, "svyglm")) {
+    return(fy_survey_df(fit))
+  }
   if (ratio) {
     return(Inf)
   }
   df <- try(stats::df.residual(fit), silent = TRUE)
   if (inherits(df, "try-error") || is.null(df) || is.na(df) || df <= 0) {
     return(Inf)
+  }
+  as.numeric(df)
+}
+
+# The design degrees of freedom of a survey-weighted fit. With too few primary
+# sampling units for the coefficients there are none, and survey itself then
+# reports nothing rather than a number; here that is said rather than falling
+# back to the normal approximation, which would draw intervals the design
+# cannot support.
+fy_survey_df <- function(fit) {
+  df <- fit[["df.residual"]]
+  if (is.null(df) || is.na(df) || df <= 0) {
+    stop(
+      "this survey::svyglm() fit has no design degrees of freedom left for ",
+      "its coefficients: the design has too few primary sampling units for ",
+      "the number of terms in the model, so no interval or test can be taken ",
+      "over it.",
+      call. = FALSE
+    )
   }
   as.numeric(df)
 }
@@ -893,6 +957,8 @@ fy_model_info <- function(fit, measure = NULL, exponentiate = NULL, vcov = NULL,
       equations = equations,
       n_base = if (is.null(equations)) cv$n_full else length(equations$base),
       robust = !is.null(robust) || fy_fit_is_robust(fit),
+      # Where the standard errors come from, in the words a report says it in.
+      variance = fy_variance_label(fit, !is.null(robust)),
       term_map = term_map,
       term_vars = terms$vars,
       # How many variables each term is of, which is what tells an interaction
@@ -925,8 +991,23 @@ fy_fit_is_robust <- function(fit) {
   if (inherits(fit, "coxph") && !is.null(fit[["naive.var"]])) {
     return(TRUE)
   }
+  # A survey-weighted fit's variance is the design-based one, which is a
+  # sandwich over the sampling units.
+  if (inherits(fit, "svyglm")) {
+    return(TRUE)
+  }
   # A GEE is fitted to give the sandwich estimator in the first place.
   fy_is_gee(fit)
+}
+
+# What the standard errors are, as a report names them. "Robust" covers both a
+# sandwich asked for here and a fit that came robust; a survey design says
+# where its variance came from, since "robust" undersells it.
+fy_variance_label <- function(fit, requested = FALSE) {
+  if (inherits(fit, "svyglm")) {
+    return("Design-based (survey)")
+  }
+  if (requested || fy_fit_is_robust(fit)) "Robust" else "Model-based"
 }
 
 # Whether the fit has a likelihood to take a likelihood ratio test over.

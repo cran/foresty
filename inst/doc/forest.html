@@ -395,9 +395,9 @@ age:</p>
 <span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">data =</span> cohort</span>
 <span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>)</span></code></pre></div>
 <p>For logistic models, <code>foresty</code> reports odds ratios by
-default. It also supports common linear, survival, mixed-effects, and
-marginal models, provided they include coefficients, a covariance
-matrix, and a model frame.</p>
+default. It also supports common linear, survival, mixed-effects,
+marginal and survey-weighted models, provided they include coefficients,
+a covariance matrix, and a model frame.</p>
 </div>
 <div id="launch-the-app" class="section level2">
 <h2>Launch the app</h2>
@@ -457,26 +457,47 @@ analyses.</p>
 <code>&quot;bmj&quot;</code>, and <code>&quot;revman&quot;</code>. You can further customize
 a figure with standard <code>ggplot2</code> layers.</p>
 </div>
+<div id="complex-survey-designs" class="section level2">
+<h2>Complex survey designs</h2>
+<p>A model fitted to a survey design with <code>survey::svyglm()</code>
+is read as it stands: declare the design first, fit the model to it, and
+pass the fit. The variance is the design-based one the fit carries, the
+intervals and the tests are referred to a t and an F on the degrees of
+freedom of the design, as <code>survey</code> itself reports them, and
+the interaction is tested by the Rao-Scott working likelihood ratio test
+rather than by the ordinary one, which does not apply to a
+design-weighted pseudo-likelihood. <code>vcov</code> and
+<code>cluster</code> are refused for such a fit, the clustering being
+part of the design. The counts beside the rows are the unweighted
+numbers of people in the sample.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>design <span class="ot">&lt;-</span> survey<span class="sc">::</span><span class="fu">svydesign</span>(<span class="at">ids =</span> <span class="sc">~</span>psu, <span class="at">strata =</span> <span class="sc">~</span>stratum, <span class="at">weights =</span> <span class="sc">~</span>w,</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>                            <span class="at">data =</span> cohort, <span class="at">nest =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>fit_svy <span class="ot">&lt;-</span> survey<span class="sc">::</span><span class="fu">svyglm</span>(asthma <span class="sc">~</span> no2 <span class="sc">+</span> sex <span class="sc">+</span> maternal_smoking,</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>                          <span class="at">design =</span> design, <span class="at">family =</span> <span class="fu">quasibinomial</span>())</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="fu">foresty_main</span>(<span class="fu">list</span>(fit_svy), <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>)</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="fu">foresty_interaction</span>(fit_svy, <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">interaction =</span> <span class="st">&quot;sex&quot;</span>)</span></code></pre></div>
+</div>
 <div id="outcomes-with-more-than-two-levels" class="section level2">
 <h2>Outcomes with more than two levels</h2>
 <p>An ordinal outcome fitted by <code>MASS::polr()</code> is read as one
 proportional-odds model, so the exposure has a single effect and the
 figure has a single row, as it would for a binary outcome.</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>fit_severity <span class="ot">&lt;-</span> MASS<span class="sc">::</span><span class="fu">polr</span>(asthma_severity <span class="sc">~</span> no2 <span class="sc">+</span> sex <span class="sc">+</span> maternal_smoking,</span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>                           <span class="at">data =</span> foresty_cohort, <span class="at">Hess =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="fu">foresty_main</span>(<span class="fu">list</span>(fit_severity), <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">contrast =</span> <span class="dv">10</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>fit_severity <span class="ot">&lt;-</span> MASS<span class="sc">::</span><span class="fu">polr</span>(asthma_severity <span class="sc">~</span> no2 <span class="sc">+</span> sex <span class="sc">+</span> maternal_smoking,</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>                           <span class="at">data =</span> foresty_cohort, <span class="at">Hess =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="fu">foresty_main</span>(<span class="fu">list</span>(fit_severity), <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">contrast =</span> <span class="dv">10</span>)</span></code></pre></div>
 <p>A nominal outcome fitted by <code>nnet::multinom()</code> is K - 1
 logistic regressions sharing one likelihood, one per non-reference level
 of the outcome. The exposure therefore has one effect per level, and the
 figure carries one row per level rather than one row in total.</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>fit_phenotype <span class="ot">&lt;-</span> nnet<span class="sc">::</span><span class="fu">multinom</span>(</span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  wheeze_phenotype <span class="sc">~</span> no2 <span class="sc">+</span> sex <span class="sc">+</span> maternal_smoking,</span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="at">data =</span> foresty_cohort, <span class="at">trace =</span> <span class="cn">FALSE</span></span>
-<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>)</span>
-<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a></span>
-<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="fu">foresty_main</span>(<span class="fu">list</span>(fit_phenotype), <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">contrast =</span> <span class="dv">10</span>,</span>
-<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>             <span class="at">outcome_reference_row =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>fit_phenotype <span class="ot">&lt;-</span> nnet<span class="sc">::</span><span class="fu">multinom</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  wheeze_phenotype <span class="sc">~</span> no2 <span class="sc">+</span> sex <span class="sc">+</span> maternal_smoking,</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="at">data =</span> foresty_cohort, <span class="at">trace =</span> <span class="cn">FALSE</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>)</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="fu">foresty_main</span>(<span class="fu">list</span>(fit_phenotype), <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">contrast =</span> <span class="dv">10</span>,</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>             <span class="at">outcome_reference_row =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 <p><code>outcome_reference</code> says which level the other rows are
 read against, and <code>outcome_reference_row</code> draws that level as
 a row of its own so that the figure states the reference rather than
@@ -495,8 +516,8 @@ counts beside the rows count</em> in <code>?foresty_main</code>.</p>
 <p>An interaction is tested jointly across the equations, so its p-value
 spends one degree of freedom for each coefficient the interaction
 added:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">foresty_interaction</span>(fit_phenotype, <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">interaction =</span> <span class="st">&quot;sex&quot;</span>,</span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>                    <span class="at">contrast =</span> <span class="dv">10</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">foresty_interaction</span>(fit_phenotype, <span class="at">exposure =</span> <span class="st">&quot;no2&quot;</span>, <span class="at">interaction =</span> <span class="st">&quot;sex&quot;</span>,</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>                    <span class="at">contrast =</span> <span class="dv">10</span>)</span></code></pre></div>
 </div>
 <div id="reproduce-and-export-results" class="section level2">
 <h2>Reproduce and export results</h2>
@@ -506,7 +527,7 @@ download PNG and SVG figures, HTML reports, and the resulting R objects.
 When downloading multiple figures, the app bundles them in a zip
 file.</p>
 <p>You can also create an HTML report from a result in R:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">foresty_report</span>(by_sex, <span class="at">file =</span> <span class="st">&quot;no2_by_sex.html&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">foresty_report</span>(by_sex, <span class="at">file =</span> <span class="st">&quot;no2_by_sex.html&quot;</span>)</span></code></pre></div>
 <p>The report records the subgroup estimates, interaction test, and
 model coefficients used for the figure.</p>
 </div>

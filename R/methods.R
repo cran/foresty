@@ -227,6 +227,7 @@ summary.foresty <- function(object, model = NULL, ...) {
       exponentiate = result$exponentiate,
       ci_level = result$ci_level,
       robust = isTRUE(result$robust),
+      variance = result$variance,
       exposure = result$exposure,
       modifier = result$modifier,
       reference_group = fy_reference_phrase(result),
@@ -269,7 +270,14 @@ print.summary.foresty <- function(x, ...) {
 
   cat("Model:      ", paste(x$model_class, collapse = ", "), "\n", sep = "")
   cat("Measure:    ", x$measure_label,
-      if (x$robust) "  (robust standard errors)" else "", "\n", sep = "")
+      if (!is.null(x$variance) && !identical(x$variance, "Model-based")) {
+        # "Design-based (survey)" reads as "design-based standard errors".
+        paste0("  (", tolower(sub(" \\(.*\\)$", "", x$variance)),
+               " standard errors)")
+      } else if (x$robust) {
+        "  (robust standard errors)"
+      },
+      "\n", sep = "")
   cat("Observations:", format(x$n, big.mark = ","), sep = " ")
   if (!is.na(x$events)) {
     cat("   Events:", format(x$events, big.mark = ","))
@@ -301,8 +309,8 @@ print.summary.foresty <- function(x, ...) {
     cat("\nInteraction (", x$exposure, " by ", x$modifier, "):\n", sep = "")
     for (test in tests) {
       cat("  ", test$test, " = ", fy_format_number(test$statistic),
-          " on ", test$df, " df, p = ", fy_format_p(test$p.value), "\n",
-          sep = "")
+          " on ", fy_df_phrase(test), " df, p = ", fy_format_p(test$p.value),
+          "\n", sep = "")
     }
   }
   invisible(x)
@@ -600,6 +608,8 @@ nobs.foresty <- function(object, ..., model = NULL) {
   fy_single_info(object, model, what = "this figure")$n
 }
 
+# The model frame is the one the counts were taken over: the rows the fit gave
+# weight to, which for a survey design that was subset() is the subset.
 #' @rdname foresty-model-methods
 #' @export
 model.frame.foresty <- function(formula, ..., model = NULL) {

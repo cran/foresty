@@ -50,6 +50,15 @@ str(foresty_cohort, max.level = 1)
 # figure
 
 ## -----------------------------------------------------------------------------
+# design <- survey::svydesign(ids = ~psu, strata = ~stratum, weights = ~w,
+#                             data = cohort, nest = TRUE)
+# fit_svy <- survey::svyglm(asthma ~ no2 + sex + maternal_smoking,
+#                           design = design, family = quasibinomial())
+# 
+# foresty_main(list(fit_svy), exposure = "no2")
+# foresty_interaction(fit_svy, exposure = "no2", interaction = "sex")
+
+## -----------------------------------------------------------------------------
 # fit_severity <- MASS::polr(asthma_severity ~ no2 + sex + maternal_smoking,
 #                            data = foresty_cohort, Hess = TRUE)
 # 

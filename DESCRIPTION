@@ -1,6 +1,6 @@
 Package: foresty
 Title: Forest Plots and Subgroup Effects from Fitted Regression Models
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: 
     c(
       person(
@@ -26,8 +26,8 @@ Description: Draws forest plots of exposure effects from fitted regression
     holding the subgroup estimates, the joint test and the coefficient table.
     The 'car' package computes the linear combinations and their tests.
     Models fitted by stats::glm(), stats::lm(), the 'survival' package, the
-    'lme4' package and the 'geepack' package are supported, as is any fit
-    supplying coef() and vcov(). Ordinal outcomes are supported through the
+    'lme4' package, the 'geepack' package and the 'survey' package are
+    supported, as is any fit supplying coef() and vcov(). Ordinal outcomes are supported through the
     'MASS' package and nominal ones through the 'nnet' package, where the
     figure carries one row per level of the outcome and the interaction is
     tested jointly across the equations. Fits from the 'rms' package are
@@ -51,16 +51,17 @@ Imports: car (>= 3.1.0), checkmate (>= 2.1.0), ggplot2 (>= 3.4.0),
         stats, utils
 Suggests: base64enc, broom (>= 1.0.0), bslib (>= 0.5.0), data.table,
         geepack, gt (>= 0.9.0), Hmisc, knitr, lme4, MASS, nnet, ragg,
-        rmarkdown, rms, sandwich (>= 3.0.0), shiny (>= 1.7.0), survival
-        (>= 3.2.0), svglite, tibble, testthat (>= 3.0.0), zip
+        rmarkdown, rms, sandwich (>= 3.0.0), shiny (>= 1.7.0), survey
+        (>= 4.1), survival (>= 3.2.0), svglite, tibble, testthat (>=
+        3.0.0), zip
 VignetteBuilder: knitr
 LazyData: true
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.0.0
 NeedsCompilation: no
-Packaged: 2026-09-03 16:56:17 UTC; shiroa1
+Packaged: 2026-09-25 18:09:21 UTC; shiroa1
 Author: Akihiro Shiroshita [aut, cre, cph],
   Yuki Kataoka [aut]
 Maintainer: Akihiro Shiroshita <akihirokun8@gmail.com>
 Repository: CRAN
-Date/Publication: 2026-09-12 14:40:22 UTC
+Date/Publication: 2026-09-25 18:40:02 UTC

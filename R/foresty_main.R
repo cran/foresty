@@ -107,8 +107,13 @@
 #' applied to the table of numbers beside the plot will spoil it. Use `+`.
 #'
 #' @param fits A list of fitted models. Models fitted by [stats::glm()],
-#'   [stats::lm()] and the `survival` package are supported,
-#'   as is any fit supplying `coef()`, `vcov()` and a model frame.
+#'   [stats::lm()], the `survival` package and [survey::svyglm()] are
+#'   supported, as is any fit supplying `coef()`, `vcov()` and a model frame.
+#'   A survey-weighted fit keeps the design-based variance it was fitted with
+#'   and is referred to a t and an F on the degrees of freedom of its design,
+#'   as `survey` itself does; the counts beside its rows are the unweighted
+#'   numbers of people in the sample, taken over the rows the fit gave weight
+#'   to, so a design that was `subset()` counts the subset.
 #' @param exposure Name of the exposure variable in each model, as a character
 #'   vector: either one name for all of them, or one name per model. Naming an
 #'   element, as `exposure = c(NO2 = "no2")`, gives that variable its label on
@@ -218,7 +223,9 @@
 #'   (`HC1`), and `"HC0"` to `"HC4"` name one exactly; both come from the
 #'   `sandwich` package. A function is called on the fit, and a matrix is used
 #'   as it stands. For a Cox model refit with `robust = TRUE`; a fit that is
-#'   already robust is used as it is.
+#'   already robust is used as it is. A [survey::svyglm()] fit refuses both
+#'   `vcov` and `cluster`: its variance is the design-based one already, and
+#'   the clustering is part of the design it was fitted to.
 #' @param cluster Cluster-robust standard errors, passed to
 #'   [sandwich::vcovCL()]. It says which observations belong together, so it
 #'   takes a column name, a vector of one identifier per observation, or a
@@ -477,6 +484,7 @@ foresty_main <- function(fits,
     ci_level = ci_level,
     adjusted = adjusted,
     robust = info$robust,
+    variance = info$variance,
     person_time = person_time
   )
 

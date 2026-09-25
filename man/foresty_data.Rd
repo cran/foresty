@@ -18,6 +18,7 @@ foresty_data(
   interaction_p = NULL,
   reference = NULL,
   emphasis = NULL,
+  color = NULL,
   measure = "OR",
   outcome = NULL,
   ratio = NULL,
@@ -64,6 +65,9 @@ treats a row whose interval is missing and whose estimate is the null
 value as one.}
 
 \item{emphasis}{A logical column marking the rows drawn for emphasis.}
+
+\item{color}{The column saying what color each row is drawn in, holding
+either the colors themselves or the names of categories. See \emph{Colors}.}
 
 \item{measure}{What the estimates are, as one of \code{"OR"}, \code{"RR"}, \code{"HR"},
 \code{"IRR"}, \code{"MD"} and \code{"Coefficient"}, or as a name of your own --
@@ -158,6 +162,29 @@ covers the block it was taken across, so it is written once, against the
 first row of the block, rather than repeated down the column.
 }
 
+\section{Colors}{
+
+
+\code{color} names the column saying what color each row is drawn in, which is
+how a figure drawn from a table colors the rows it chooses rather than the
+ones a rule would have chosen. The mark, its interval and the diamond of an
+emphasised row are all drawn in it.
+
+The column holds either the colors themselves -- \code{"red"}, \code{"#B24745"}, any
+name in \code{\link[grDevices:colors]{grDevices::colors()}} -- or the names of categories, which are
+taken in the order they first appear and drawn in the \code{colors} of
+\code{\link[=foresty_layout]{foresty_layout()}}, one color per name. Which of the two a column is, is
+read off its values rather than asked for again, so a column holding some
+of each is refused: half of it would be drawn in the colors given and half
+in colors chosen for it.
+
+A row whose color is \code{NA} is drawn in the one color the rest of the figure
+would have been. The reference level of a categorical exposure stays
+hollow, being a definition rather than an estimate. No legend is drawn:
+every row is labelled already. Naming this column is what the figure is
+colored by, whatever \code{color_by} in \code{\link[=foresty_layout]{foresty_layout()}} says.
+}
+
 \section{What is not here}{
 
 
@@ -211,6 +238,33 @@ foresty_data(
   interaction_p = "p_int", measure = "HR", outcome = "death",
   adjusted = TRUE, layout = "jama"
 )
+
+# The rows drawn in colors the data carries: the colors themselves here,
+# one per block, with the overall estimate left in the layout's own.
+subgroups$color_group <- c(NA, "#D95F02", "#D95F02", "#7570B3", "#7570B3")
+
+foresty_data(
+  subgroups,
+  label = "subgroup", group = "block", emphasis = "overall",
+  color = "color_group", interaction_p = "p_int",
+  measure = "OR", outcome = "asthma", adjusted = TRUE
+)
+
+# The same figure from the names of the categories, drawn in the palette
+# the layout was given rather than in colors written into the data. It is
+# the figure above with one column changed, so it is drawn on the second
+# pass rather than adding its time to the first.
+\donttest{
+subgroups$color_group <- c(NA, "Sex", "Sex", "Age", "Age")
+
+foresty_data(
+  subgroups,
+  label = "subgroup", group = "block", emphasis = "overall",
+  color = "color_group", interaction_p = "p_int",
+  measure = "OR", outcome = "asthma", adjusted = TRUE,
+  layout = foresty_layout("classic", colors = "Set1")
+)
+}
 
 }
 \seealso{

@@ -88,6 +88,14 @@
 #' For a linear model the likelihood ratio test is the chi-square form rather
 #' than the exact F test, which is what the Wald test gives there.
 #'
+#' A [survey::svyglm()] fit maximizes a pseudo-likelihood weighted by the
+#' design, so the ordinary likelihood ratio test does not apply to it. In its
+#' place `test = "lrt"` takes the Rao-Scott working likelihood ratio test that
+#' `survey` reports for two nested fits, through [survey::anova.svyglm()], and
+#' `test = "wald"` the F test on the degrees of freedom of the design, which is
+#' what [survey::regTermTest()] reports. Both are design-based from the start,
+#' so neither is affected by the caveat above.
+#'
 #' @inheritSection foresty_main What the counts beside the rows count
 #' @inheritSection foresty_main Adjusting the figure
 #'
@@ -378,6 +386,7 @@ foresty_interaction <- function(fit,
     ci_level = ci_level,
     adjusted = adjusted,
     robust = info$robust,
+    variance = info$variance,
     person_time = person_time
   )
 
@@ -578,7 +587,53 @@ fy_interaction_tests <- function(info, columns, test, fit, base_info, exposure,
   if (test %in% c("wald", "both")) {
     out$wald <- fy_joint_test(info, columns)
   }
+
+  # The likelihood-based test, taken by `taker` over the model without the
+  # interaction, which is the model that was passed in unless it already
+  # carried the interaction, in which case it has to be taken out again. A
+  # taker that refits that model for itself is not handed one.
+  take <- function(taker, with_reduced = TRUE) {
+    reduced <- if (!with_reduced) {
+      NULL
+    } else if (already) {
+      fy_drop_interaction(fit, base_info, exposure, interaction)
+    } else {
+      fit
+    }
+    lrt <- if (chosen) {
+      taker(info, reduced, columns)
+    } else {
+      try(taker(info, reduced, columns), silent = TRUE)
+    }
+    if (inherits(lrt, "try-error")) {
+      message(
+        "The likelihood ratio test could not be taken over this model, so the ",
+        "joint Wald test is reported instead: ",
+        # The reason ends by suggesting the Wald test, which is what has just
+        # been done, so that sentence is left off.
+        sub("\\s*[Uu]se `test = \"wald\"`\\.\\s*$", "",
+            conditionMessage(attr(lrt, "condition")))
+      )
+      return(list(wald = out$wald %||% fy_joint_test(info, columns)))
+    }
+    out$lrt <- lrt
+    out
+  }
+
   if (test %in% c("lrt", "both")) {
+    # A survey-weighted fit has no likelihood of the data to take the test
+    # over, but it has the design's own version of it: the Rao-Scott working
+    # likelihood ratio test, which stands where the likelihood ratio test does
+    # for every other model. Its variance is design-based from the start, so
+    # the robust-variance caveat below does not arise either.
+    if (inherits(info$fit, "svyglm")) {
+      terms <- names(info$term_vars)[fy_interaction_terms(info, exposure,
+                                                          interaction)]
+      return(take(
+        function(info, reduced, columns) fy_svy_lrt_test(info, terms, columns),
+        with_reduced = FALSE
+      ))
+    }
     # A fit that has no likelihood has no likelihood ratio test, whoever asked
     # for one. A GEE is the case that matters: it is estimating equations rather
     # than a likelihood, so there is nothing to take twice the difference of,
@@ -620,28 +675,7 @@ fy_interaction_tests <- function(info, columns, test, fit, base_info, exposure,
         call. = FALSE
       )
     }
-    reduced <- if (already) {
-      fy_drop_interaction(fit, base_info, exposure, interaction)
-    } else {
-      fit
-    }
-    lrt <- if (chosen) {
-      fy_lrt_test(info, reduced, columns)
-    } else {
-      try(fy_lrt_test(info, reduced, columns), silent = TRUE)
-    }
-    if (inherits(lrt, "try-error")) {
-      message(
-        "The likelihood ratio test could not be taken over this model, so the ",
-        "joint Wald test is reported instead: ",
-        # The reason ends by suggesting the Wald test, which is what has just
-        # been done, so that sentence is left off.
-        sub("\\s*[Uu]se `test = \"wald\"`\\.\\s*$", "",
-            conditionMessage(attr(lrt, "condition")))
-      )
-      return(list(wald = out$wald %||% fy_joint_test(info, columns)))
-    }
-    out$lrt <- lrt
+    return(take(fy_lrt_test))
   }
   out
 }
@@ -741,6 +775,13 @@ fy_add_interaction <- function(fit, info, exposure, interaction,
 # which is why every caller of this takes the failure as a failure and says so.
 fy_refit <- function(fit, info, added) {
   call <- stats::update(fit, added, evaluate = FALSE)
+  # svyglm() records its call under the bare name of the generic however it
+  # was called, so a fit made with survey::svyglm() in a session that never
+  # attached survey would fail to find the function here. The namespace is
+  # put back.
+  if (inherits(fit, "svyglm") && identical(call[[1L]], as.name("svyglm"))) {
+    call[[1L]] <- quote(survey::svyglm)
+  }
   env <- environment(stats::formula(fit))
   if (is.null(env)) {
     env <- parent.frame()
@@ -772,6 +813,10 @@ fy_refit <- function(fit, info, added) {
 # `y` the things those flags asked to be kept rather than the flags.
 fy_lost_arg_blocklist <- c("formula", "data", "weights", "na.action",
                            "subset", "model", "x", "y")
+
+# Arguments a fit keeps under another name: survey::svyglm() is given a
+# `design` and stores it as `survey.design`, the rows it dropped taken out.
+fy_lost_arg_aliases <- c(design = "survey.design")
 
 fy_bind_lost_args <- function(call, fit, env) {
   lost <- fy_lost_args(fit, call, env)
@@ -813,8 +858,13 @@ fy_lost_args <- function(fit, call = stats::getCall(fit), env = NULL) {
                   "try-error")) {
       next
     }
-    if (!is.null(fit[[argument]])) {
-      found[[as.character(written)]] <- argument
+    element <- if (argument %in% names(fy_lost_arg_aliases)) {
+      fy_lost_arg_aliases[[argument]]
+    } else {
+      argument
+    }
+    if (!is.null(fit[[element]])) {
+      found[[as.character(written)]] <- element
     }
   }
   found

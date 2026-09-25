@@ -30,8 +30,13 @@ foresty_main(
 }
 \arguments{
 \item{fits}{A list of fitted models. Models fitted by \code{\link[stats:glm]{stats::glm()}},
-\code{\link[stats:lm]{stats::lm()}} and the \code{survival} package are supported,
-as is any fit supplying \code{coef()}, \code{vcov()} and a model frame.}
+\code{\link[stats:lm]{stats::lm()}}, the \code{survival} package and \code{\link[survey:svyglm]{survey::svyglm()}} are
+supported, as is any fit supplying \code{coef()}, \code{vcov()} and a model frame.
+A survey-weighted fit keeps the design-based variance it was fitted with
+and is referred to a t and an F on the degrees of freedom of its design,
+as \code{survey} itself does; the counts beside its rows are the unweighted
+numbers of people in the sample, taken over the rows the fit gave weight
+to, so a design that was \code{subset()} counts the subset.}
 
 \item{exposure}{Name of the exposure variable in each model, as a character
 vector: either one name for all of them, or one name per model. Naming an
@@ -137,7 +142,9 @@ own. \code{"robust"} gives the heteroskedasticity-consistent sandwich estimator
 (\code{HC1}), and \code{"HC0"} to \code{"HC4"} name one exactly; both come from the
 \code{sandwich} package. A function is called on the fit, and a matrix is used
 as it stands. For a Cox model refit with \code{robust = TRUE}; a fit that is
-already robust is used as it is.}
+already robust is used as it is. A \code{\link[survey:svyglm]{survey::svyglm()}} fit refuses both
+\code{vcov} and \code{cluster}: its variance is the design-based one already, and
+the clustering is part of the design it was fitted to.}
 
 \item{cluster}{Cluster-robust standard errors, passed to
 \code{\link[sandwich:vcovCL]{sandwich::vcovCL()}}. It says which observations belong together, so it

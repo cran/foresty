@@ -1728,3 +1728,43 @@ test_that("the Plot tab says what the counts are counts of, when it needs to", {
     expect_match(drawn(output), "no row carries the total behind its own")
   })
 })
+
+test_that("the plain script tests a survey-weighted fit against its design", {
+  skip_on_cran()
+  skip_if_not_installed("shiny")
+  skip_if_not_installed("patchwork")
+  skip_if_not_installed("survey")
+  # The design the fit was made to is not in the session the script is pasted
+  # into, so the script puts it back from the fit, and the test it writes is
+  # the Rao-Scott one rather than the arithmetic of two log-likelihoods.
+  cohort <- foresty_cohort
+  my_fit <- local({
+    my_design <- fy_test_design(cohort)
+    survey::svyglm(asthma ~ no2 + sex + maternal_smoking, design = my_design,
+                   family = quasibinomial())
+  })
+  app <- foresty_app(my_fit, launch = FALSE)
+
+  shiny::testServer(app, {
+    do.call(session$setInputs,
+            fy_app_defaults(modifier = "sex", overall = FALSE, test = "lrt"))
+    drawn <- as.data.frame(figure()$value)
+    reported <- fy_result(figure()$value)$interaction_test
+    expect_match(reported$test, "Rao-Scott")
+
+    code <- output$code_plain
+    expect_match(code, "library(survey)", fixed = TRUE)
+    expect_match(code, "my_design <- my_fit$survey.design", fixed = TRUE)
+    expect_match(code, "anova(reduced, full, method = \"LRT\")$p", fixed = TRUE)
+    expect_false(grepl("logLik", code, fixed = TRUE))
+    expect_match(fy_plain_prose(code),
+                 "the Rao-Scott working likelihood ratio test of the interaction",
+                 fixed = TRUE)
+
+    env <- fy_plain_session(my_fit, cohort)
+    invisible(utils::capture.output(eval(parse(text = code), envir = env)))
+    expect_equal(env$rows_1$estimate, drawn$estimate, tolerance = 1e-8)
+    expect_equal(env$rows_1$conf.low, drawn$conf.low, tolerance = 1e-8)
+    expect_equal(env$p_interaction_1, reported$p.value, tolerance = 1e-8)
+  })
+})

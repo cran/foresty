@@ -78,8 +78,15 @@ fy_layout_colors <- function(colors) {
 }
 
 # Whether this figure is drawn in more than one color.
+#
+# `color_by` is one way of asking for that. A column of colors carried by the
+# rows themselves is the other, and the marks take their color from the rows
+# either way, so both answer this question. Nothing in a layout says whether
+# the estimates brought colors of their own, so fy_forest_plot() sets the flag
+# on the layout it draws with once it has seen them.
 fy_colors_rows <- function(layout) {
-  !identical(layout$color_by %||% "none", "none")
+  isTRUE(layout$row_colors_given) ||
+    !identical(layout$color_by %||% "none", "none")
 }
 
 # Which category each row is drawn in the color of.
@@ -120,11 +127,52 @@ fy_color_keys <- function(estimates, color_by) {
   factor(key, levels = unique(key))
 }
 
+# The colors the rows brought with them, where they brought any.
+#
+# foresty_data() attaches the column that `color` named, and it holds either
+# the colors themselves -- "red", "#B24745" -- or the names of categories, which
+# are taken in the order they first appear and drawn in the layout's `colors`.
+# Which of the two a column is, is read off its values rather than asked for
+# again: a column of colors is a column of colors, and a column of anything
+# else is a column of names. A row saying nothing is drawn in the one color
+# the rest of the figure would have been drawn in.
+fy_given_row_colors <- function(estimates, layout) {
+  keys <- estimates$color_group
+  if (is.null(keys)) {
+    return(NULL)
+  }
+  keys <- as.character(keys)
+  keys[!is.na(keys) & !nzchar(keys)] <- NA_character_
+  given <- !is.na(keys)
+  out <- rep(layout$palette$estimate, length(keys))
+  if (!any(given)) {
+    return(out)
+  }
+  if (all(fy_is_color(keys[given]))) {
+    out[given] <- keys[given]
+    return(out)
+  }
+  named <- unique(keys[given])
+  colors <- fy_layout_colors(layout$colors)
+  out[given] <- colors[(match(keys[given], named) - 1L) %% length(colors) + 1L]
+  out
+}
+
 # The color of each row, and the fill of its mark. The reference level of a
 # categorical exposure is drawn hollow whatever the figure is colored by: it
 # is a definition rather than an estimate, and a filled mark would say it had
 # been estimated.
 fy_row_colors <- function(estimates, layout) {
+  # Colors the rows carry are the colors they are drawn in, whatever `color_by`
+  # says: naming the column that holds them is the instruction, and a rule
+  # worked out from the labels cannot be what was meant instead.
+  given <- fy_given_row_colors(estimates, layout)
+  if (!is.null(given)) {
+    estimates$row_color <- given
+    estimates$fill_color <- ifelse(fy_reference_flags(estimates),
+                                    layout$palette$reference, given)
+    return(estimates)
+  }
   if (!fy_colors_rows(layout)) {
     estimates$row_color <- layout$palette$estimate
     estimates$fill_color <- ifelse(fy_reference_flags(estimates),

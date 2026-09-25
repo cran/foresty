@@ -78,7 +78,10 @@ it appears, so a combined figure reads across its blocks. \code{"row"} gives
 every row a color, whatever it is of. The reference level of a
 categorical exposure is drawn hollow either way, being a definition rather
 than an estimate. No legend is drawn: every row is labelled already, and a
-legend repeating the labels is a second copy of them to keep in step.}
+legend repeating the labels is a second copy of them to keep in step.
+A figure drawn from a table of estimates can say which row is which color
+instead of leaving it to a rule, by carrying a column of them: see
+\code{color} in \code{\link[=foresty_data]{foresty_data()}}.}
 
 \item{colors}{The colors \code{color_by} draws the categories in, in order,
 and cycled where there are more categories than colors. The name of a

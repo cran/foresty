@@ -76,8 +76,8 @@ fit <- glm(
 ```
 
 For logistic models, `foresty` reports odds ratios by default. It also supports
-common linear, survival, mixed-effects, and marginal models, provided they
-include coefficients, a covariance matrix, and a model frame.
+common linear, survival, mixed-effects, marginal and survey-weighted models,
+provided they include coefficients, a covariance matrix, and a model frame.
 
 ## Launch the app
 
@@ -144,6 +144,30 @@ figure
 Available layouts include `"classic"`, `"jama"`, `"nejm"`, `"lancet"`,
 `"bmj"`, and `"revman"`. You can further customize a figure with standard
 `ggplot2` layers.
+
+## Complex survey designs
+
+A model fitted to a survey design with `survey::svyglm()` is read as it
+stands: declare the design first, fit the model to it, and pass the fit.
+The variance is the design-based one the fit carries, the intervals and the
+tests are referred to a t and an F on the degrees of freedom of the design,
+as `survey` itself reports them, and the interaction is tested by the
+Rao-Scott working likelihood ratio test rather than by the ordinary one,
+which does not apply to a design-weighted pseudo-likelihood. `vcov` and
+`cluster` are refused for such a fit, the clustering being part of the
+design. The counts beside the rows are the unweighted numbers of people in
+the sample.
+
+```{r}
+#| eval: false
+design <- survey::svydesign(ids = ~psu, strata = ~stratum, weights = ~w,
+                            data = cohort, nest = TRUE)
+fit_svy <- survey::svyglm(asthma ~ no2 + sex + maternal_smoking,
+                          design = design, family = quasibinomial())
+
+foresty_main(list(fit_svy), exposure = "no2")
+foresty_interaction(fit_svy, exposure = "no2", interaction = "sex")
+```
 
 ## Outcomes with more than two levels
 

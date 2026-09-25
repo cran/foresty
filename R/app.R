@@ -2295,12 +2295,15 @@ fy_app_plain_note <- function(...) {
 # Which of the two it is turns on the model as much as on the sidebar -- a fit
 # with no likelihood has the Wald test reported beside it whatever was asked
 # for -- so it is named from the code that takes it.
-fy_app_plain_test_name <- function(used) {
+fy_app_plain_test_name <- function(used, fit = NULL) {
   if (used[["lrt"]] && used[["wald"]]) {
     return("the tests of the interaction")
   }
   if (used[["wald"]]) {
     return("the joint Wald test of the interaction")
+  }
+  if (inherits(fit, "svyglm")) {
+    return("the Rao-Scott working likelihood ratio test of the interaction")
   }
   "the likelihood ratio test of the interaction"
 }
@@ -2354,11 +2357,13 @@ fy_app_plain_preamble <- function(input, ctx, used) {
     fy_app_plain_note(
       "Needs the car package", if (!is.null(equations)) " and nnet",
       if (inherits(info$fit, "merMod")) " and lme4",
+      if (inherits(info$fit, "svyglm")) " and survey",
       ", and nothing else. Everything below is base R and car: the model the ",
       "interaction term was added to, the linear combination of its ",
       "coefficients each subgroup estimate is",
       if (any(used)) {
-        paste0(", and ", fy_app_plain_test_name(used), " reported beside them")
+        paste0(", and ", fy_app_plain_test_name(used, info$fit),
+               " reported beside them")
       },
       "."
     ),
@@ -2375,6 +2380,8 @@ fy_app_plain_preamble <- function(input, ctx, used) {
     "",
     "library(car)",
     if (!is.null(equations)) "library(nnet)",
+    # update() has to find svyglm(), and anova() its method for two of them.
+    if (inherits(info$fit, "svyglm")) "library(survey)",
     "",
     fy_app_plain_helpers(info, equations, used),
     "",
@@ -2388,7 +2395,9 @@ fy_app_plain_preamble <- function(input, ctx, used) {
              "the regression coefficient, drawn about 0"
            }),
     paste0("use_t        <- ", if (is.finite(info$error_df)) "TRUE" else "FALSE",
-           "   # ", if (is.finite(info$error_df)) {
+           "   # ", if (inherits(info$fit, "svyglm")) {
+             "a survey design: t and F on its design degrees of freedom"
+           } else if (is.finite(info$error_df)) {
              "a gaussian model: t and F on its residual degrees of freedom"
            } else {
              "the normal approximation: z and a Wald chi-square"
@@ -2456,7 +2465,7 @@ fy_app_plain_outcomes <- function(input, ctx) {
 # than as a copy of it where the model's call says where it came from.
 fy_app_plain_at_line <- function(info, fit_name) {
   where <- tryCatch(fy_reference_index(info), error = function(e) NULL)
-  data_name <- fy_app_data_name(info$fit)
+  data_name <- fy_app_data_name(info$fit, fit_name)
   taken <- if (is.null(where)) {
     paste0("model.frame(", fit_name, ")[1, ]")
   } else if (where$from_data && !is.null(data_name)) {
@@ -2579,7 +2588,9 @@ paste0("# --- What foresty does for you ", strrep("-", 45)),
 "",
 "# Which distribution an estimate is referred to. Taken from the model in hand,",
 "# because the model carrying the interaction has spent degrees of freedom on",
-"# it that the model without it still has.",
+"# it that the model without it still has. A survey-weighted fit keeps the",
+"# degrees of freedom of its design here, which is what survey's own",
+"# summary() and confint() refer it to.",
 "error_df_of <- function(model, use_t) {",
 "  if (!use_t) return(Inf)",
 "  df <- tryCatch(df.residual(model), error = function(e) NULL)",
@@ -2606,7 +2617,19 @@ paste0("# --- What foresty does for you ", strrep("-", 45)),
 "  lh[[grep(\"^Pr\\\\(\", names(lh))]][2]",
 "}"
     ),
-    if (used[["lrt"]]) c(
+    if (used[["lrt"]] && inherits(fit, "svyglm")) c(
+"",
+"# The same hypothesis tested against the design rather than against the Wald",
+"# approximation: the Rao-Scott working likelihood ratio test, which takes",
+"# twice the difference in the design-weighted pseudo-likelihood between the",
+"# model carrying the interaction and the same model without it and refers it",
+"# to the design. The ordinary likelihood ratio test does not apply to a",
+"# survey-weighted fit, since what it maximizes is not a likelihood of the",
+"# data. It is the test anova() takes over two nested svyglm() fits.",
+"lrt_p <- function(full, reduced) {",
+"  anova(reduced, full, method = \"LRT\")$p",
+"}"
+    ) else if (used[["lrt"]]) c(
 "",
 "# The same hypothesis tested against the likelihood rather than against the",
 "# Wald approximation to it: twice the difference in log-likelihood between the",
@@ -3011,7 +3034,7 @@ fy_app_plain_subgroups <- function(state, suffix, input, ctx, comparisons) {
     paste0("rownames(rows", suffix, ") <- NULL"),
     paste0("rows", suffix),
     "",
-    fy_app_plain_test_said(state, input),
+    fy_app_plain_test_said(state, input, ctx$info$fit),
     fy_app_plain_test(state, suffix, int_name, exposure, modifier, added,
                       input, ctx),
     fy_app_plain_said(suffix)
@@ -3099,7 +3122,7 @@ fy_app_plain_cells <- function(state, suffix, input, ctx, reference) {
     paste0("rownames(rows", suffix, ") <- NULL"),
     paste0("rows", suffix),
     "",
-    fy_app_plain_test_said(state, input),
+    fy_app_plain_test_said(state, input, ctx$info$fit),
     "# It is the test of the interaction rather than a test of any row.",
     fy_app_plain_test(state, suffix, int_name, exposure, modifier, added,
                       input, ctx),
@@ -3138,9 +3161,13 @@ fy_app_plain_is_lrt <- function(state, input) {
 
 # The line above it that says which of the two it is, since a p-value whose
 # test is not named is a p-value a reader has to guess at.
-fy_app_plain_test_said <- function(state, input) {
+fy_app_plain_test_said <- function(state, input, fit = NULL) {
   if (fy_app_plain_is_lrt(state, input)) {
-    "# The p-value reported beside them: the likelihood ratio test."
+    if (inherits(fit, "svyglm")) {
+      "# The p-value reported beside them: the Rao-Scott working likelihood ratio test."
+    } else {
+      "# The p-value reported beside them: the likelihood ratio test."
+    }
   } else {
     "# The p-value reported beside them: the joint Wald test."
   }
@@ -3621,7 +3648,8 @@ fy_app_report_interaction <- function(state, fit, fit_name, base_terms, input,
   taken <- vapply(tests, function(t) t$test %||% "", character(1))
 
   if (any(grepl("[Ll]ikelihood", taken))) {
-    fy_app_say_code(fy_app_lrt_code(int_name, added, exposure, modifier), 7L)
+    fy_app_say_code(fy_app_lrt_code(int_name, added, exposure, modifier,
+                                    fit = info$fit), 7L)
   }
   if (any(grepl("Wald|F$", taken))) {
     fy_app_say_code(fy_app_joint_code(info, int_name, columns), 7L)
@@ -3633,8 +3661,8 @@ fy_app_report_interaction <- function(state, fit, fit_name, base_terms, input,
   for (test in tests) {
     if (is.null(test)) next
     fy_app_say("     Reported here:       ", test$test, " = ",
-        fy_format_number(test$statistic), " on ", test$df, " df, p = ",
-        fy_format_p(test$p.value), "\n", sep = "")
+        fy_format_number(test$statistic), " on ", fy_df_phrase(test),
+        " df, p = ", fy_format_p(test$p.value), "\n", sep = "")
   }
   fy_app_say("\n")
 }
@@ -3742,7 +3770,7 @@ fy_app_level_values <- function(info, modifier, levels) {
 # the modifier together and would otherwise be handed two rows already set.
 fy_app_rows_lines <- function(info, fit_name, exposure, compared, set = TRUE) {
   where <- tryCatch(fy_reference_index(info), error = function(e) NULL)
-  data_name <- fy_app_data_name(info$fit)
+  data_name <- fy_app_data_name(info$fit, fit_name)
   taken <- if (is.null(where)) {
     paste0("model.frame(", fit_name, ")[c(1, 1), ]")
   } else if (where$from_data && !is.null(data_name)) {
@@ -3762,9 +3790,15 @@ fy_app_rows_lines <- function(info, fit_name, exposure, compared, set = TRUE) {
 
 # The name the model's own call knows its data by, so that the code names the
 # data frame the reader has rather than a copy of it.
-fy_app_data_name <- function(fit) {
+fy_app_data_name <- function(fit, fit_name = NULL) {
   call <- tryCatch(stats::getCall(fit), error = function(e) NULL)
   if (is.null(call) || is.null(call$data) || !is.name(call$data)) {
+    # A survey-weighted fit names a design rather than a data frame, and keeps
+    # the design's variables in itself; that is the frame the row was found in.
+    if (inherits(fit, "svyglm") && !is.null(fit_name) &&
+        is.data.frame(fit[["data"]])) {
+      return(paste0(fit_name, "$data"))
+    }
     return(NULL)
   }
   as.character(call$data)
@@ -3846,9 +3880,10 @@ fy_app_coef_lines <- function(info, fit_name) {
 }
 
 # The test itself, at the degrees of freedom foresty worked out: the residual
-# degrees of freedom for a gaussian model, which is reported with t and F, and
-# infinite for everything else, which is reported with the normal approximation
-# and a Wald chi-square.
+# degrees of freedom for a gaussian model and the design degrees of freedom for
+# a survey-weighted one, which are reported with t and F, and infinite for
+# everything else, which is reported with the normal approximation and a Wald
+# chi-square.
 fy_app_test_lines <- function(info, fit_name, hypothesis = "L") {
   test <- if (is.finite(info$error_df)) "F" else "Chisq"
   df <- if (is.finite(info$error_df)) fy_trim_number(info$error_df) else "Inf"
@@ -3879,8 +3914,20 @@ fy_app_joint_code <- function(info, fit_name, columns) {
 # The likelihood ratio test, as the arithmetic foresty does rather than as the
 # anova() that comes to the same thing: twice the difference in log-likelihood,
 # on the parameters the interaction spent.
-fy_app_lrt_code <- function(fit_name, added, exposure, modifier) {
+fy_app_lrt_code <- function(fit_name, added, exposure, modifier, fit = NULL) {
   terms <- paste(added %||% paste0(exposure, ":", modifier), collapse = " - ")
+  if (inherits(fit, "svyglm")) {
+    return(c(
+      paste0("reduced <- update(", fit_name, ", . ~ . - ", terms, ")"),
+      "",
+      paste0("anova(reduced, ", fit_name, ", method = \"LRT\")"),
+      "",
+      "# The Rao-Scott working likelihood ratio test, which is what stands in",
+      "# for the likelihood ratio test in a survey-weighted fit: twice the",
+      "# difference in the design-weighted pseudo-likelihood, referred to the",
+      "# design rather than to a chi-square."
+    ))
+  }
   c(paste0("reduced <- update(", fit_name, ", . ~ . - ", terms, ")"),
     "",
     paste0("statistic <- 2 * (as.numeric(logLik(", fit_name,

@@ -220,7 +220,8 @@ fy_model_table <- function(info, result, exposure) {
     rows[["Reference group"]] <- fy_reference_phrase(result)
   }
   rows[["Effect measure"]] <- result$measure_label
-  rows[["Standard errors"]] <- if (isTRUE(result$robust)) "Robust" else "Model-based"
+  rows[["Standard errors"]] <- result$variance %||%
+    if (isTRUE(result$robust)) "Robust" else "Model-based"
   # The confidence level is not among them: every column of numbers on the page
   # is headed with it -- "Odds ratio (95% CI)" -- so a row of its own says it
   # again in a place nobody reads it.
@@ -255,7 +256,7 @@ fy_interaction_html <- function(x, result) {
 fy_test_phrase <- function(test) {
   paste0(
     fy_escape(test$test), " = ", fy_format_number(test$statistic),
-    " on ", test$df, " degree", if (isTRUE(test$df != 1)) "s" else "",
+    " on ", fy_df_phrase(test), " degree", if (fy_df_is_one(test)) "" else "s",
     " of freedom, p ",
     if (is.na(test$p.value)) "unavailable"
     else if (test$p.value < 0.001) "&lt; 0.001"

@@ -1,6 +1,14 @@
+# foresty 0.2.0
+
+* Models fitted to a complex survey design with `survey::svyglm()` are supported. Declare the design, fit the model to it and pass the fit: the variance is the design-based one the fit carries, and the intervals and tests are referred to a t and an F on the degrees of freedom of the design, as `survey` itself reports them. The interaction is tested by the Rao-Scott working likelihood ratio test that `survey::anova()` takes over two nested fits, the ordinary likelihood ratio test having no meaning for a design-weighted pseudo-likelihood; `test = "wald"` gives the F test `survey::regTermTest()` reports. `vcov` and `cluster` are refused for such a fit, the clustering being part of the design. The counts beside the rows are the unweighted numbers of people in the sample, taken over the rows the fit gave weight to, so a design that was `subset()` counts the subset. The report names the standard errors as design-based, and the R code tab of `foresty_app()` writes the same test in `survey`'s own terms.
+* A `quasibinomial` family with a logit link is read as an odds ratio, as a `binomial` one is. It was left as a coefficient, drawn about zero, though the report already called the model a logistic regression.
+* An F test of the interaction is written with both of its degrees of freedom, `F = 8.93 on 1 and 113 df`, in `summary()`, the HTML report and the app.
+
+* `foresty_data(color = )` names a column of the data saying what color each row is drawn in, which is how a figure drawn from a table colors the rows it chooses rather than the ones a rule would have chosen. `color_by` in `foresty_layout()` works the color out from the labels, which it can do for a figure that came off a model and its levels; a table of estimates carries whatever the author put in it, so it says instead. The column holds either the colors themselves -- `"red"`, `"#B24745"` -- or the names of categories, drawn in the layout's `colors` one color per name; which of the two it is, is read off the values rather than asked for again, and a column holding some of each is refused where it was named. The mark, its interval and the summary diamond are all drawn in it, the reference level of a categorical exposure stays hollow, and no legend is drawn, every row being labelled already.
+
 # foresty 0.1.0
 
-First release.
+First release. Published on CRAN on 2026-09-12.
 
 ## Features
 

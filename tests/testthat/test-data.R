@@ -218,3 +218,102 @@ test_that("the figure takes a style, and the columns it is asked for", {
   chosen <- fy_data_columns(fy_data_figure(), c("estimate", "n"))
   expect_equal(attr(chosen, "keys"), c("estimate", "n"))
 })
+
+# Every mark of a figure, rather than the last layer of them: a figure with an
+# emphasised row draws its marks in two layers, one for that row and one for
+# the rest, and a color given to the data has to reach both.
+fy_data_marks <- function(x) {
+  data <- ggplot2::ggplot_build(x)$data
+  hit <- Filter(
+    function(d) all(c("shape", "fill", "colour") %in% names(d)) && nrow(d) > 0L,
+    data
+  )
+  do.call(rbind, lapply(hit, function(d) d[, c("shape", "fill", "colour")]))
+}
+
+test_that("the rows are drawn in the colors the data carries", {
+  rows <- fy_data_rows()
+  rows$color_group <- c("red", "#D95F02", "#D95F02", "#7570B3", "#7570B3")
+  x <- fy_data_figure(data = rows, color = "color_group")
+
+  marks <- fy_data_marks(x)
+  expect_equal(sort(unique(marks$fill)),
+               sort(c("#7570B3", "#D95F02", "red")))
+  # The interval is drawn in the color of the mark on it.
+  expect_equal(marks$colour, marks$fill)
+  expect_equal(sort(unique(fy_bars(x)$colour)),
+               sort(c("#7570B3", "#D95F02", "red")))
+
+  # The wide summary diamond is the emphasised row drawn as a polygon rather
+  # than as a mark, and it takes the row's color too.
+  y <- fy_data_figure(data = rows, color = "color_group",
+                      layout = foresty_layout("classic",
+                                              emphasis_shape = "diamond"))
+  built <- ggplot2::ggplot_build(y)$data
+  expect_true(any(vapply(built, function(d) "red" %in% d$fill, logical(1))))
+})
+
+test_that("a column of category names is drawn in the layout's palette", {
+  rows <- fy_data_rows()
+  rows$color_group <- c("Overall", "Sex", "Sex", "Age", "Age")
+  x <- fy_data_figure(data = rows, color = "color_group",
+                      layout = foresty_layout("classic", colors = "Set1"))
+
+  # The categories take their colors in the order they first appear, so that
+  # the figure reads down the palette as it reads down the rows.
+  expect_equal(sort(unique(fy_data_marks(x)$fill)),
+               sort(foresty_colors("Set1")[1:3]))
+})
+
+test_that("a color the data gives a row is the color the row is drawn in", {
+  rows <- fy_data_rows()
+  rows$color_group <- c(NA, "#D95F02", "#D95F02", NA, NA)
+  black <- fy_as_layout("classic")$palette$estimate
+
+  # A row saying nothing is drawn in the one color the rest of the figure
+  # would have been drawn in.
+  x <- fy_data_figure(data = rows, color = "color_group")
+  expect_equal(sort(unique(fy_data_marks(x)$fill)), sort(c(black, "#D95F02")))
+
+  # Naming the column is what the figure is colored by, whatever `color_by`
+  # would have worked out from the labels instead.
+  y <- fy_data_figure(data = rows, color = "color_group",
+                      layout = foresty_layout("classic",
+                                              color_by = "category",
+                                              colors = "Set1"))
+  expect_equal(sort(unique(fy_data_marks(y)$fill)), sort(c(black, "#D95F02")))
+
+  # And a figure that asked for none of this is drawn exactly as it was.
+  expect_true(all(fy_data_marks(fy_data_figure())$fill == black))
+})
+
+test_that("a reference row stays hollow however the rows are colored", {
+  cells <- data.frame(
+    ecog      = c("0-1", ">=2"),
+    estimate  = c(1.00, 1.94),
+    conf.low  = c(NA, 1.42),
+    conf.high = c(NA, 2.65),
+    reference = c(TRUE, FALSE),
+    color     = c("red", "blue"),
+    stringsAsFactors = FALSE
+  )
+  marks <- fy_data_marks(
+    foresty_data(cells, label = "ecog", reference = "reference",
+                 color = "color", measure = "HR")
+  )
+
+  # The reference level was not estimated, so its mark is hollow and only its
+  # outline carries the color it was given.
+  expect_true("white" %in% marks$fill)
+  expect_true("blue" %in% marks$fill)
+  expect_true("red" %in% marks$colour)
+})
+
+test_that("a column of colors is colors, or names, but not both", {
+  rows <- fy_data_rows()
+  rows$color_group <- c("red", "Sex", "Sex", "Age", "Age")
+  expect_error(fy_data_figure(data = rows, color = "color_group"),
+               "colors and names of categories both")
+
+  expect_error(fy_data_figure(color = "nosuch"), "not in `data`")
+})

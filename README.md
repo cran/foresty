@@ -7,6 +7,13 @@
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/AkiShiroshita/foresty/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/AkiShiroshita/foresty/actions/workflows/R-CMD-check.yaml)
+[![CRAN
+status](https://www.r-pkg.org/badges/version/foresty)](https://CRAN.R-project.org/package=foresty)
+[![Codecov test
+coverage](https://codecov.io/gh/AkiShiroshita/foresty/branch/main/graph/badge.svg)](https://app.codecov.io/gh/AkiShiroshita/foresty?branch=main)
+[![foresty
+downloads](https://cranlogs.r-pkg.org/badges/foresty)](https://CRAN.R-project.org/package=foresty)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22735615.svg)](https://doi.org/10.5281/zenodo.22735615)
 <!-- badges: end -->
 
 Visualize interaction effects with publication-ready forest plots.
@@ -31,10 +38,16 @@ p-values.](man/figures/demo.png)
 on the left and the resulting forest plot on the
 right.](man/figures/ui.png)
 
-Installation:
+Installation from CRAN:
 
 ``` r
-# install.packages("devtools")
+install.packages("foresty")
+```
+
+The development version from GitHub:
+
+``` r
+# install.packages("remotes")
 remotes::install_github("AkiShiroshita/foresty")
 ```
 
@@ -96,6 +109,7 @@ covariance matrix, and a model frame. Tested model classes include:
 | base R | `glm()`, `lm()` |
 | `survival` | `coxph()`, `survreg()` |
 | `lme4` | `lmer()`, `glmer()` |
+| `survey` | `svyglm()` |
 | other | `MASS::polr()` (logistic), `nnet::multinom()`, `geepack::geeglm()` |
 
 The effect measure is inferred from the model where possible, including
@@ -103,7 +117,10 @@ odds ratios, hazard ratios, risk ratios, incidence rate ratios, and mean
 differences.
 
 Robust and cluster-robust standard errors are also supported where
-applicable.
+applicable. A `survey::svyglm()` fit keeps the design-based variance it
+was fitted with, and is referred to a t and an F on the degrees of
+freedom of its design, as `survey` itself does; the interaction is
+tested by the Rao-Scott working likelihood ratio test.
 
 `rms` fits – `lrm()`, `ols()`, `cph()`, `psm()`, `Glm()`, `orm()` – are
 **not** supported. A variable *transformed* by `rms` is a different
@@ -177,6 +194,11 @@ foresty_data(
 <img src="man/figures/README-foresty-data-example-1.png"
 style="width:100.0%"
 alt="Forest plot built from a prepared data frame, showing odds ratios for the overall population and for subgroups defined by sex and maternal age, with interaction p-values." />
+
+Add a column of colors — `"red"` and `"#B24745"`, or the names of
+categories to draw from the layout’s palette — and name it with `color =`
+to say which row is drawn in which color:
+`foresty_data(subgroups, color = "color_group", ...)`.
 
 ## Acknowledgements
 

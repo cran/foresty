@@ -57,6 +57,9 @@
 #'   categorical exposure is drawn hollow either way, being a definition rather
 #'   than an estimate. No legend is drawn: every row is labelled already, and a
 #'   legend repeating the labels is a second copy of them to keep in step.
+#'   A figure drawn from a table of estimates can say which row is which color
+#'   instead of leaving it to a rule, by carrying a column of them: see
+#'   `color` in [foresty_data()].
 #' @param colors The colors `color_by` draws the categories in, in order,
 #'   and cycled where there are more categories than colors. The name of a
 #'   ColorBrewer palette -- `"Dark2"`, the default, `"Set1"` or `"Set2"` -- or

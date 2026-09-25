@@ -19,5 +19,7 @@ bibentry(
   ),
   year     = year,
   note     = sprintf("R package version %s", meta$Version),
-  url      = "https://github.com/AkiShiroshita/foresty"
+  url      = "https://CRAN.R-project.org/package=foresty",
+  # Zenodo's concept DOI, which resolves to whichever release is newest.
+  doi      = "10.5281/zenodo.22735615"
 )

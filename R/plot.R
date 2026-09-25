@@ -74,6 +74,12 @@ fy_forest_plot <- function(estimates,
   rows <- fy_layout_rows(estimates, grouped = grouped, as_rows = as_rows,
                          separators = layout$separators, fold = fold,
                          gaps = gaps)
+  # A figure whose rows carry colors of their own is drawn from those colors
+  # rather than from the layout's one, which is the same thing `color_by` asks
+  # for and is drawn by the same layers. The layout says nothing about it, so
+  # the layout this figure is drawn with is told.
+  layout$row_colors_given <-
+    !is.null(fy_given_row_colors(rows$estimates, layout))
   estimates <- fy_row_colors(rows$estimates, layout)
   row_labels <- if (folded) {
     as.character(estimates$group)

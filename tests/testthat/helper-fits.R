@@ -188,3 +188,21 @@ fy_with_device_width <- function(cm, f) {
   }, add = TRUE)
   f()
 }
+
+# A survey design over the cohort, for the svyglm() tests: random weights,
+# forty primary sampling units and three strata, so that the design-based
+# variance differs from the model's own and the design has degrees of freedom
+# of its own.
+fy_test_design <- function(data = foresty_cohort) {
+  set.seed(1)
+  data$w <- stats::runif(nrow(data), 0.5, 2)
+  data$psu <- sample(seq_len(40), nrow(data), replace = TRUE)
+  data$stratum <- sample(seq_len(3), nrow(data), replace = TRUE)
+  survey::svydesign(ids = ~psu, strata = ~stratum, weights = ~w, data = data,
+                    nest = TRUE)
+}
+
+fy_test_svyglm <- function(design = fy_test_design()) {
+  survey::svyglm(asthma ~ no2 + sex + maternal_age, design = design,
+                 family = quasibinomial())
+}

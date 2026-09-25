@@ -151,3 +151,25 @@ test_that("a fit that is already robust is reported as robust", {
   expect_equal(est$se, unname(sqrt(stats::vcov(robust)["no2", "no2"])),
                tolerance = 1e-10)
 })
+
+test_that("a survey-weighted fit keeps the variance of its design", {
+  skip_if_not_installed("survey")
+  fit <- fy_test_svyglm()
+  expect_error(
+    foresty_main(list(fit), exposure = "no2", vcov = "robust"),
+    "already the design-based one"
+  )
+  expect_error(
+    foresty_main(list(fit), exposure = "no2", cluster = "psu"),
+    "already the design-based one"
+  )
+  expect_error(
+    foresty_main(list(fit), exposure = "no2", vcov = vcov(fit)),
+    "already the design-based one"
+  )
+  expect_error(
+    foresty_interaction(fit, exposure = "no2", interaction = "sex",
+                        vcov = "HC0"),
+    "already the design-based one"
+  )
+})

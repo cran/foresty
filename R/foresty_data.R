@@ -56,6 +56,27 @@
 #' covers the block it was taken across, so it is written once, against the
 #' first row of the block, rather than repeated down the column.
 #'
+#' @section Colors:
+#'
+#' `color` names the column saying what color each row is drawn in, which is
+#' how a figure drawn from a table colors the rows it chooses rather than the
+#' ones a rule would have chosen. The mark, its interval and the diamond of an
+#' emphasised row are all drawn in it.
+#'
+#' The column holds either the colors themselves -- `"red"`, `"#B24745"`, any
+#' name in [grDevices::colors()] -- or the names of categories, which are
+#' taken in the order they first appear and drawn in the `colors` of
+#' [foresty_layout()], one color per name. Which of the two a column is, is
+#' read off its values rather than asked for again, so a column holding some
+#' of each is refused: half of it would be drawn in the colors given and half
+#' in colors chosen for it.
+#'
+#' A row whose color is `NA` is drawn in the one color the rest of the figure
+#' would have been. The reference level of a categorical exposure stays
+#' hollow, being a definition rather than an estimate. No legend is drawn:
+#' every row is labelled already. Naming this column is what the figure is
+#' colored by, whatever `color_by` in [foresty_layout()] says.
+#'
 #' @section What is not here:
 #'
 #' The figure carries no model, because it was not given one. `summary()`,
@@ -87,6 +108,8 @@
 #'   treats a row whose interval is missing and whose estimate is the null
 #'   value as one.
 #' @param emphasis A logical column marking the rows drawn for emphasis.
+#' @param color The column saying what color each row is drawn in, holding
+#'   either the colors themselves or the names of categories. See *Colors*.
 #' @param measure What the estimates are, as one of `"OR"`, `"RR"`, `"HR"`,
 #'   `"IRR"`, `"MD"` and `"Coefficient"`, or as a name of your own --
 #'   `"Standardised mean difference"`, `"Prevalence ratio"` -- in which case
@@ -168,6 +191,33 @@
 #'   adjusted = TRUE, layout = "jama"
 #' )
 #'
+#' # The rows drawn in colors the data carries: the colors themselves here,
+#' # one per block, with the overall estimate left in the layout's own.
+#' subgroups$color_group <- c(NA, "#D95F02", "#D95F02", "#7570B3", "#7570B3")
+#'
+#' foresty_data(
+#'   subgroups,
+#'   label = "subgroup", group = "block", emphasis = "overall",
+#'   color = "color_group", interaction_p = "p_int",
+#'   measure = "OR", outcome = "asthma", adjusted = TRUE
+#' )
+#'
+#' # The same figure from the names of the categories, drawn in the palette
+#' # the layout was given rather than in colors written into the data. It is
+#' # the figure above with one column changed, so it is drawn on the second
+#' # pass rather than adding its time to the first.
+#' \donttest{
+#' subgroups$color_group <- c(NA, "Sex", "Sex", "Age", "Age")
+#'
+#' foresty_data(
+#'   subgroups,
+#'   label = "subgroup", group = "block", emphasis = "overall",
+#'   color = "color_group", interaction_p = "p_int",
+#'   measure = "OR", outcome = "asthma", adjusted = TRUE,
+#'   layout = foresty_layout("classic", colors = "Set1")
+#' )
+#' }
+#'
 #' @export
 foresty_data <- function(data,
                          estimate = NULL,
@@ -182,6 +232,7 @@ foresty_data <- function(data,
                          interaction_p = NULL,
                          reference = NULL,
                          emphasis = NULL,
+                         color = NULL,
                          measure = "OR",
                          outcome = NULL,
                          ratio = NULL,
@@ -209,7 +260,8 @@ foresty_data <- function(data,
                    conf.high = conf.high, label = label, group = group,
                    n = n, events = events, person_time = person_time,
                    p = p, interaction_p = interaction_p,
-                   reference = reference, emphasis = emphasis)
+                   reference = reference, emphasis = emphasis,
+                   color = color)
   )
 
   grouped <- !is.null(estimates$block_label)
@@ -435,6 +487,11 @@ fy_data_estimates <- function(data, info, columns) {
   if (!is.null(emphasis)) {
     out$emphasis <- emphasis
   }
+  color <- take("color", c("color_group", "colour", "colour_group"),
+                type = "character")
+  if (!is.null(color)) {
+    out$color_group <- fy_data_colors(color)
+  }
   p_int <- take("interaction_p", c("p_interaction", "p.interaction",
                                    "interaction.p"))
   if (!is.null(p_int)) {
@@ -496,6 +553,40 @@ fy_data_column <- function(data, given, what, aliases = character(0),
   # is read as the first of them.
   found <- found[order(match(tolower(found), tolower(wanted)))]
   fy_data_cast(data[[found[1L]]], found[1L], type)
+}
+
+# The column of colors, checked where it was named rather than where it is
+# drawn.
+#
+# A column of colors is drawn in those colors and a column of names is drawn
+# in the layout's palette, one color per name; which of the two it is, is read
+# off the values. A column holding some of each is neither, and the figure
+# would draw half of it in the colors given and half in colors of its own
+# without saying so, so it is refused here -- while the argument that named
+# the column is still the obvious thing to look at.
+fy_data_colors <- function(x) {
+  x[!is.na(x) & !nzchar(x)] <- NA_character_
+  given <- x[!is.na(x)]
+  if (!length(given)) {
+    return(x)
+  }
+  wrong <- fy_not_colors(given)
+  if (length(wrong) && length(wrong) < length(unique(given))) {
+    stop(
+      "the column `color` names holds colors and names of categories both: ",
+      paste0("\"", utils::head(setdiff(unique(given), wrong), 2L), "\"",
+             collapse = ", "),
+      " R can draw, and ",
+      paste0("\"", utils::head(wrong, 2L), "\"", collapse = ", "),
+      if (length(wrong) > 2L) ", ...",
+      " it cannot. A column of colors is drawn in those colors; a column of ",
+      "names is drawn in the layout's `colors`, one color per name. It has ",
+      "to be one or the other, since a column of both would be drawn half in ",
+      "the colors given and half in colors chosen for it.",
+      call. = FALSE
+    )
+  }
+  x
 }
 
 fy_data_cast <- function(x, name, type) {

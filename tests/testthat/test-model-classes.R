@@ -877,3 +877,113 @@ test_that("a fit made in a loop is refitted with what it recorded itself", {
   expect_equal(fy_est(x)$estimate, fy_est(same)$estimate)
   expect_false(isTRUE(all.equal(fy_est(x)$se, fy_est(other)$se)))
 })
+
+test_that("a survey-weighted fit is read as survey reports it", {
+  skip_if_not_installed("survey")
+  design <- fy_test_design()
+  fit <- fy_test_svyglm(design)
+
+  info <- fy_model_info(fit)
+  expect_equal(info$measure, "OR")
+  expect_true(info$exponentiate)
+  expect_true(info$robust)
+  expect_equal(info$variance, "Design-based (survey)")
+  expect_equal(fy_model_name(fit), "Survey-weighted logistic regression model")
+  # The intervals and the p-values are the ones survey's own confint() and
+  # summary() give: a t on the design degrees of freedom, for every family.
+  expect_equal(info$error_df, fit$df.residual)
+  expect_equal(info$n, nobs(fit))
+
+  x <- foresty_main(list(fit), exposure = "no2")
+  est <- fy_est(x)
+  expect_equal(est$estimate, unname(exp(coef(fit)["no2"])), tolerance = 1e-8)
+  expect_equal(c(est$conf.low, est$conf.high),
+               unname(exp(confint(fit)["no2", ])), tolerance = 1e-8)
+  expect_equal(est$p.value, summary(fit)$coefficients["no2", 4],
+               tolerance = 1e-8)
+
+  s <- summary(x)
+  expect_equal(s$variance, "Design-based (survey)")
+  expect_output(print(s), "design-based standard errors")
+})
+
+test_that("a design with no degrees of freedom left is refused", {
+  skip_if_not_installed("survey")
+  # Three primary sampling units cannot support four coefficients: survey
+  # leaves the fit a negative number of degrees of freedom, and no interval
+  # can be drawn on it.
+  d <- foresty_cohort
+  set.seed(1)
+  d$psu <- sample(seq_len(3), nrow(d), replace = TRUE)
+  d$w <- 1
+  design <- survey::svydesign(ids = ~psu, weights = ~w, data = d)
+  fit <- survey::svyglm(asthma ~ no2 + sex + maternal_age, design = design,
+                        family = quasibinomial())
+  expect_lte(fit$df.residual, 0)
+  expect_error(foresty_main(list(fit), exposure = "no2"),
+               "no design degrees of freedom")
+})
+
+test_that("a survey-weighted fit counts the people the design gave weight to", {
+  skip_if_not_installed("survey")
+  design <- fy_test_design()
+  # A calibrated design keeps the rows a subset() excludes, at a weight of
+  # zero, so that the variance still knows their sampling units. They are in
+  # the model frame and contributed nothing; the counts leave them out.
+  calibrated <- survey::calibrate(
+    design, ~sex, c(`(Intercept)` = 4000, sexMale = 2000)
+  )
+  urban <- subset(calibrated, urbanicity == "Urban")
+  fit <- suppressWarnings(
+    survey::svyglm(asthma ~ no2 + sex, design = urban, family = quasibinomial())
+  )
+  expect_gt(nrow(fit$model), nobs(fit))
+
+  info <- fy_model_info(fit)
+  expect_equal(info$n, nobs(fit))
+  expect_equal(nrow(info$mf), nobs(fit))
+  kept <- foresty_cohort$urbanicity == "Urban"
+  expect_equal(info$n, sum(kept))
+  expect_equal(info$events, sum(foresty_cohort$asthma[kept]))
+
+  x <- suppressWarnings(foresty_main(list(fit), exposure = "sex"))
+  expect_equal(sum(fy_est(x)$n), sum(kept))
+})
+
+test_that("a survey-weighted fit is refitted from the design it was fitted to", {
+  skip_if_not_installed("survey")
+  # The design made inside a function is gone from the caller by the time the
+  # fit reaches foresty; the fit keeps it, so the interaction can still be
+  # added.
+  fit <- local({
+    my_design <- fy_test_design()
+    survey::svyglm(asthma ~ no2 + sex + maternal_age, design = my_design,
+                   family = quasibinomial())
+  })
+  x <- foresty_interaction(fit, exposure = "no2", interaction = "sex")
+  expect_s3_class(fy_result(x)$infos[[1L]]$fit, "svyglm")
+  expect_equal(nrow(fy_est(x)), 2L)
+
+  # And a fit whose design is out of reach altogether binds it back from
+  # the fit itself, under the name the call used.
+  lost <- fit
+  environment(lost$formula) <- new.env(parent = globalenv())
+  environment(lost$terms) <- environment(lost$formula)
+  expect_equal(fy_lost_args(lost), c(my_design = "survey.design"))
+  y <- foresty_interaction(lost, exposure = "no2", interaction = "sex")
+  expect_equal(fy_est(y)$estimate, fy_est(x)$estimate, tolerance = 1e-8)
+})
+
+test_that("a survey-weighted fit says so in its report", {
+  skip_if_not_installed("survey")
+  skip_if_not_installed("gt")
+  fit <- fy_test_svyglm()
+  x <- foresty_interaction(fit, exposure = "no2", interaction = "sex")
+  file <- tempfile(fileext = ".html")
+  on.exit(unlink(file), add = TRUE)
+  foresty_report(x, file = file)
+  html <- paste(readLines(file, warn = FALSE), collapse = "\n")
+  expect_match(html, "Design-based (survey)", fixed = TRUE)
+  expect_match(html, "Survey-weighted logistic regression model", fixed = TRUE)
+  expect_match(html, "Rao-Scott working likelihood ratio", fixed = TRUE)
+})

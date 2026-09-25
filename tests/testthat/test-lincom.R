@@ -175,6 +175,27 @@ test_that("the likelihood ratio test is the default, and falls back to Wald", {
   )
   expect_named(fy_result(fallback)$interaction_tests, "wald")
 
+  # So is a fit whose likelihood turns out to be missing only once the test is
+  # taken over it. The reason is passed on without its closing advice to use
+  # the Wald test, which is what has just been done.
+  no_aic <- fit
+  no_aic$aic <- NA_real_
+  said <- tryCatch(
+    foresty_interaction(no_aic, exposure = "no2", interaction = "sex"),
+    message = conditionMessage
+  )
+  expect_match(said, "could not be taken over this model.*reports no likelihood")
+  expect_no_match(said, "test = \"wald\"", fixed = TRUE)
+  lost <- suppressMessages(
+    foresty_interaction(no_aic, exposure = "no2", interaction = "sex")
+  )
+  expect_named(fy_result(lost)$interaction_tests, "wald")
+  expect_error(
+    foresty_interaction(no_aic, exposure = "no2", interaction = "sex",
+                        test = "lrt"),
+    "reports no likelihood"
+  )
+
   # Robust standard errors are no part of a likelihood, so the default is the
   # test that does answer to them.
   skip_if_not_installed("sandwich")
@@ -216,4 +237,61 @@ test_that("a GEE is never given a likelihood ratio test of the interaction", {
   tests <- fy_result(both)$interaction_tests
   expect_length(tests, 1L)
   expect_equal(tests[[1L]]$test, "Wald chi-square")
+})
+
+test_that("a survey-weighted fit is tested against its design", {
+  skip_if_not_installed("survey")
+  design <- fy_test_design()
+  fit <- fy_test_svyglm(design)
+  fit_int <- survey::svyglm(asthma ~ no2 + sex + maternal_age + no2:sex,
+                            design = design, family = quasibinomial())
+
+  # The default is the Rao-Scott working likelihood ratio test, which stands
+  # where the likelihood ratio test does for every other model. survey takes
+  # it by refitting from the call, which names svyglm() bare, so the reference
+  # is taken as a session that had attached survey would take it.
+  x <- foresty_interaction(fit, exposure = "no2", interaction = "sex")
+  expect_named(fy_result(x)$interaction_tests, "lrt")
+  expect_equal(fy_test(x)$test, "Rao-Scott working likelihood ratio")
+  attached <- fit_int
+  attached$call[[1L]] <- quote(survey::svyglm)
+  reference <- stats::anova(fit, attached, method = "LRT")
+  expect_equal(fy_test(x)$statistic, reference$chisq, tolerance = 1e-8)
+  expect_equal(fy_test(x)$df, reference$df)
+  expect_equal(fy_test(x)$ddf, reference$ddf)
+  expect_equal(fy_test(x)$p.value, reference$p, tolerance = 1e-8)
+
+  # The Wald test is the F test survey's regTermTest() reports.
+  w <- foresty_interaction(fit, exposure = "no2", interaction = "sex",
+                           test = "wald")
+  wald <- survey::regTermTest(fit_int, ~no2:sex, method = "Wald")
+  expect_equal(fy_test(w)$test, "F")
+  expect_equal(fy_test(w)$statistic, as.numeric(wald$Ftest), tolerance = 1e-8)
+  expect_equal(fy_test(w)$df, as.numeric(wald$df))
+  expect_equal(fy_test(w)$ddf, as.numeric(wald$ddf))
+  expect_equal(fy_test(w)$p.value, as.numeric(wald$p), tolerance = 1e-8)
+  expect_output(print(summary(w)),
+                paste0("on 1 and ", wald$ddf, " df"), fixed = TRUE)
+
+  both <- foresty_interaction(fit, exposure = "no2", interaction = "sex",
+                              test = "both")
+  expect_named(fy_result(both)$interaction_tests, c("wald", "lrt"))
+
+  # A fit already carrying the interaction has it taken out again for the
+  # model the test compares against.
+  same <- suppressMessages(
+    foresty_interaction(fit_int, exposure = "no2", interaction = "sex")
+  )
+  expect_equal(fy_test(same)$p.value, reference$p, tolerance = 1e-8)
+
+  # A family that is not a quasi-likelihood one still reports no ordinary
+  # likelihood ratio test: logLik() of a survey-weighted fit is not one.
+  fit_binomial <- suppressWarnings(
+    survey::svyglm(asthma ~ no2 + sex + maternal_age, design = design,
+                   family = binomial())
+  )
+  b <- suppressWarnings(
+    foresty_interaction(fit_binomial, exposure = "no2", interaction = "sex")
+  )
+  expect_equal(fy_test(b)$test, "Rao-Scott working likelihood ratio")
 })

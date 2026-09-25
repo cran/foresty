@@ -277,6 +277,24 @@ test_that("figures that are not comparable are refused", {
                "argument 2 is of class")
 })
 
+test_that("the standard errors are named only where every figure agrees", {
+  skip_if_not_installed("sandwich")
+  p <- fy_combine_pieces()
+  robust <- foresty_main(list(fy_test_logistic()), exposure = "no2",
+                         vcov = "robust")
+
+  same <- foresty_combine(robust, robust)
+  expect_equal(fy_result(same)$variance, "Robust")
+
+  # Robust beside model-based is neither; the figure is still robust in part,
+  # and its summary says that much.
+  mixed <- foresty_combine(Overall = robust, Sex = p$by_sex)
+  expect_null(fy_result(mixed)$variance)
+  expect_true(fy_result(mixed)$robust)
+  expect_output(print(summary(mixed, model = 1)), "(robust standard errors)",
+                fixed = TRUE)
+})
+
 test_that("figures of different outcomes are a figure of no one outcome", {
   d <- foresty_cohort
   asthma <- foresty_main(

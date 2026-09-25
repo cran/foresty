@@ -165,7 +165,9 @@ own. \code{"robust"} gives the heteroskedasticity-consistent sandwich estimator
 (\code{HC1}), and \code{"HC0"} to \code{"HC4"} name one exactly; both come from the
 \code{sandwich} package. A function is called on the fit, and a matrix is used
 as it stands. For a Cox model refit with \code{robust = TRUE}; a fit that is
-already robust is used as it is.}
+already robust is used as it is. A \code{\link[survey:svyglm]{survey::svyglm()}} fit refuses both
+\code{vcov} and \code{cluster}: its variance is the design-based one already, and
+the clustering is part of the design it was fitted to.}
 
 \item{cluster}{Cluster-robust standard errors, passed to
 \code{\link[sandwich:vcovCL]{sandwich::vcovCL()}}. It says which observations belong together, so it
@@ -328,6 +330,14 @@ the default and \code{test = "both"} report the Wald test and say that they did.
 
 For a linear model the likelihood ratio test is the chi-square form rather
 than the exact F test, which is what the Wald test gives there.
+
+A \code{\link[survey:svyglm]{survey::svyglm()}} fit maximizes a pseudo-likelihood weighted by the
+design, so the ordinary likelihood ratio test does not apply to it. In its
+place \code{test = "lrt"} takes the Rao-Scott working likelihood ratio test that
+\code{survey} reports for two nested fits, through \code{\link[survey:anova.svyglm]{survey::anova.svyglm()}}, and
+\code{test = "wald"} the F test on the degrees of freedom of the design, which is
+what \code{\link[survey:regTermTest]{survey::regTermTest()}} reports. Both are design-based from the start,
+so neither is affected by the caveat above.
 }
 
 \section{What the counts beside the rows count}{

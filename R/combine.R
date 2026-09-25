@@ -230,6 +230,9 @@ foresty_combine <- function(...,
     ci_level = results[[1L]]$ci_level,
     adjusted = all(vapply(results, function(r) isTRUE(r$adjusted), logical(1))),
     robust = any(vapply(results, function(r) isTRUE(r$robust), logical(1))),
+    # Where the standard errors came from, where every figure says the same;
+    # figures that disagree leave it to the robust flag above.
+    variance = fy_shared_value(lapply(results, function(r) r$variance)),
     # How the rows of the figures being combined read, so that the combined
     # figure can say the same about its counts as they did. The sentences
     # themselves are written again from this figure's own rows and layout
@@ -281,7 +284,8 @@ foresty_combine <- function(...,
 fy_combine_figure <- function(estimates, exposure, infos, blocks,
                               overall_blocks, measure, measure_label,
                               exponentiate, ci_level, adjusted, robust,
-                              table, columns, person_time, layout, title,
+                              variance, table, columns, person_time, layout,
+                              title,
                               subtitle, xlab,
                               counts_reading = c(by_level = FALSE,
                                                  by_outcome = FALSE)) {
@@ -357,8 +361,15 @@ fy_combine_figure <- function(estimates, exposure, infos, blocks,
     ci_level = ci_level,
     adjusted = adjusted,
     robust = robust,
+    variance = variance,
     person_time = person_time
   )
+}
+
+# One value the figures agree on, or NULL where they do not or none has it.
+fy_shared_value <- function(values) {
+  values <- unique(unlist(values, use.names = FALSE))
+  if (length(values) == 1L) values else NULL
 }
 
 # Whether the rows of the figures being combined read the way a categorical
@@ -550,6 +561,10 @@ fy_combined_estimates <- function(results, blocks) {
       counts_pair = as.character(est$counts_pair %||% NA_character_),
       interaction_p = est$interaction_p %||% NA_real_,
       interaction_p_lrt = est$interaction_p_lrt %||% NA_real_,
+      # A color a row was given travels with the row, so that a figure drawn
+      # from a table of colored rows is still colored once it is combined with
+      # another.
+      color_group = as.character(est$color_group %||% NA_character_),
       stringsAsFactors = FALSE
     )
   }, results, blocks)
@@ -567,6 +582,11 @@ fy_combined_estimates <- function(results, blocks) {
   }
   if (all(is.na(out$interaction_p_lrt))) {
     out$interaction_p_lrt <- NULL
+  }
+  # A column of colors no figure supplied would tip the combined figure into
+  # drawing every row from a column holding nothing.
+  if (all(is.na(out$color_group))) {
+    out$color_group <- NULL
   }
   if (all(is.na(out$modifier_level))) {
     out$modifier_level <- NULL
